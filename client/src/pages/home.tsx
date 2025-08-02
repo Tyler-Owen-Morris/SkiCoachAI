@@ -9,6 +9,7 @@ import SkierCard from "@/components/skier-card";
 import BottomNavigation from "@/components/bottom-navigation";
 import FloatingActionButton from "@/components/floating-action-button";
 import LoadingOverlay from "@/components/loading-overlay";
+import SmartVoiceRecorder from "@/components/smart-voice-recorder";
 import { useLocation } from "wouter";
 
 interface SkierWithStats {
@@ -27,28 +28,28 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: skiers, isLoading } = useQuery<SkierWithStats[]>({
+  const { data: skiers, isLoading, error } = useQuery<SkierWithStats[], Error>({
     queryKey: ["/api/skiers"],
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-      }
-    },
   });
 
-  const filteredSkiers = skiers?.filter(skier =>
+  // Handle auth errors with useEffect instead of onError
+  if (error && isUnauthorizedError(error)) {
+    toast({
+      title: "Unauthorized",
+      description: "You are logged out. Logging in again...",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      window.location.href = "/api/login";
+    }, 500);
+  }
+
+  const filteredSkiers = skiers?.filter((skier: SkierWithStats) =>
     skier.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
   const totalSkiers = skiers?.length || 0;
-  const totalNotes = skiers?.reduce((sum, skier) => sum + skier.noteCount, 0) || 0;
+  const totalNotes = skiers?.reduce((sum: number, skier: SkierWithStats) => sum + skier.noteCount, 0) || 0;
 
   const handleSkierClick = (skierId: string) => {
     setLocation(`/skier/${skierId}`);
@@ -93,6 +94,9 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Smart Voice Recorder */}
+        <SmartVoiceRecorder skiers={(skiers as SkierWithStats[]) || []} />
+
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400" size={16} />
@@ -134,7 +138,7 @@ export default function Home() {
               )}
             </div>
           ) : (
-            filteredSkiers.map((skier) => (
+            filteredSkiers.map((skier: SkierWithStats) => (
               <SkierCard
                 key={skier.id}
                 skier={skier}
