@@ -1,0 +1,45 @@
+Ski Coach AI Assistant: Design Document Summary
+Project Overview
+This mobile application serves as a custom AI assistant for ski coaches to manage notes on individual skiers. Coaches can verbally input notes via voice, which the app transcribes, stores per skier, and generates concise paragraph summaries. The goal is to streamline coaching workflows on the slopes, focusing on simplicity, offline-capable voice input, and quick summaries. Target platforms: iOS and Android via cross-platform development.
+Target Users and Use Cases
+	•	Primary Users: Ski coaches or instructors.
+	•	Core Use Cases:
+	◦	Add a new skier profile.
+	◦	Record voice notes for a specific skier (e.g., “John’s turns need more edge control”).
+	◦	View or generate a summarized paragraph of all notes for a skier (e.g., “John has improved in parallel turns but struggles with moguls…”).
+	◦	List all skiers and their summary status.
+Key Features
+	1	Skier Management: Create, list, and select skier profiles (simple CRUD).
+	2	Voice Note Input: Record audio, transcribe to text, and append to skier’s notes.
+	3	Note Summarization: On demand, generate a coherent paragraph summary from accumulated notes.
+	4	Offline Support: Queue voice recordings and sync when online (using Expo’s offline capabilities).
+	5	UI/UX: Minimalist interface with voice button, skier list, and summary viewer.
+Technical Stack
+	•	Frontend Framework: Expo (React Native) for rapid cross-platform mobile development. Use Expo AV for audio recording, Expo Speech for TTS feedback if needed.
+	•	Backend API: Simplest setup using Node.js with Express.js. Deploy on a serverless platform like Vercel or AWS Lambda for scalability. API endpoints:
+	◦	POST /transcribe: Accepts audio file, returns transcribed text (integrate OpenAI Whisper API).
+	◦	POST /notes/:skierId: Stores transcribed note for a skier.
+	◦	GET /summary/:skierId: Generates and returns summary paragraph (use OpenAI GPT API with prompt like “Summarize these notes into a concise paragraph: [notes]”).
+	◦	GET /skiers: Lists all skiers.
+	◦	Authentication: Basic JWT for coach login (keep minimal).
+	•	Database: Firebase Firestore (NoSQL) for real-time sync and offline support, storing skier docs with note arrays.
+	•	AI Integration: OpenAI API for transcription (Whisper) and summarization (GPT-4o-mini for cost-efficiency). Handle API keys securely via environment variables.
+	•	Other Tools: Axios for API calls from Expo; React Navigation for app routing.
+Architecture Overview
+	•	Client-Side (Expo App):
+	◦	UI Components: Home screen (skier list), Skier detail screen (record button, notes history, generate summary button).
+	◦	Flow: Record audio → Upload to backend for transcription → Store note → Fetch summary on request.
+	◦	State Management: Redux or Context API for skier data.
+	•	Server-Side (Node.js API):
+	◦	Receives requests from app, interacts with OpenAI and Firebase.
+	◦	Error Handling: Retry logic for API failures; validate inputs.
+	•	Data Flow:
+	◦	Voice → Expo AV → Backend /transcribe → OpenAI Whisper → Text note → Firebase store.
+	◦	Summary Request → Fetch notes from Firebase → OpenAI GPT prompt → Return paragraph.
+	•	Security/Privacy: Encrypt notes if sensitive; comply with data regs (e.g., GDPR). No user-uploaded images/videos.
+Development Guidelines
+	•	MVP Scope: Focus on core voice-to-summary flow; add features like note editing later.
+	•	Testing: Unit tests for API endpoints (Jest); E2E tests for app (Detox via Expo).
+	•	Deployment: Expo EAS for builds; CI/CD with GitHub Actions.
+	•	Assumptions: Minimal dependencies; assume free-tier OpenAI usage initially. Budget for API costs based on usage.
+This design prioritizes simplicity for a small dev team to build in 2-4 weeks, with Expo enabling quick iterations. Expand based on user feedback.
