@@ -53,7 +53,8 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
 
   const addNoteMutation = useMutation({
     mutationFn: async ({ skierId, content }: { skierId: string; content: string }) => {
-      return await apiRequest(`/api/skiers/${skierId}/notes`, "POST", { content, skierId });
+      console.log("Attempting to save note:", { skierId, content });
+      return await apiRequest("POST", `/api/skiers/${skierId}/notes`, { content, skierId });
     },
     onSuccess: () => {
       setSaveStatus('success');
@@ -71,12 +72,20 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
       }, 3000);
     },
     onError: (error) => {
+      console.error("Note save error:", error);
       setSaveStatus('error');
       toast({
         title: "Error",
-        description: "Failed to save voice note",
+        description: `Failed to save voice note: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
+      
+      // Reset after showing error
+      setTimeout(() => {
+        setTranscriptionText("");
+        setIdentifiedSkier(null);
+        setSaveStatus('idle');
+      }, 3000);
     },
   });
 
