@@ -53,7 +53,7 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
 
   const addNoteMutation = useMutation({
     mutationFn: async ({ skierId, content }: { skierId: string; content: string }) => {
-      return await apiRequest(`/api/skiers/${skierId}/notes`, "POST", { content, type: "voice" });
+      return await apiRequest(`/api/skiers/${skierId}/notes`, "POST", { content, skierId });
     },
     onSuccess: () => {
       setSaveStatus('success');
