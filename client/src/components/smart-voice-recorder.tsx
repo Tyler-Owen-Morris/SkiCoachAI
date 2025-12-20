@@ -21,70 +21,85 @@ interface SmartVoiceRecorderProps {
   skiers: SkierWithStats[];
 }
 
-export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) {
+export default function SmartVoiceRecorder({
+  skiers,
+}: SmartVoiceRecorderProps) {
   const [transcriptionText, setTranscriptionText] = useState("");
-  const [identifiedSkier, setIdentifiedSkier] = useState<SkierWithStats | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [identifiedSkier, setIdentifiedSkier] = useState<SkierWithStats | null>(
+    null,
+  );
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "success" | "error"
+  >("idle");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const { 
-    transcript, 
-    isListening, 
-    startListening, 
-    stopListening, 
-    hasRecognitionSupport 
+
+  const {
+    transcript,
+    isListening,
+    startListening,
+    stopListening,
+    hasRecognitionSupport,
   } = useSpeechRecognition();
 
   // Function to identify skier from transcript
   const identifySkierFromText = (text: string): SkierWithStats | null => {
     const lowerText = text.toLowerCase();
-    
+
     // Find skier whose name appears in the text
-    const foundSkier = skiers.find(skier => {
-      const nameParts = skier.name.toLowerCase().split(' ');
-      return nameParts.some(namePart => 
-        lowerText.includes(namePart) && namePart.length > 2 // Avoid matching short words
+    const foundSkier = skiers.find((skier) => {
+      const nameParts = skier.name.toLowerCase().split(" ");
+      return nameParts.some(
+        (namePart) => lowerText.includes(namePart) && namePart.length > 2, // Avoid matching short words
       );
     });
-    
+
     return foundSkier || null;
   };
 
   const addNoteMutation = useMutation({
-    mutationFn: async ({ skierId, content }: { skierId: string; content: string }) => {
+    mutationFn: async ({
+      skierId,
+      content,
+    }: {
+      skierId: string;
+      content: string;
+    }) => {
       console.log("Attempting to save note:", { skierId, content });
-      return await apiRequest("POST", `/api/skiers/${skierId}/notes`, { content, skierId });
+      return await apiRequest("POST", `/api/skiers/${skierId}/notes`, {
+        content,
+        skierId,
+      });
     },
     onSuccess: () => {
-      setSaveStatus('success');
-      queryClient.invalidateQueries({ queryKey: ['/api/skiers'] });
+      setSaveStatus("success");
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers"] });
       toast({
         title: "Note saved!",
         description: `Voice note assigned to ${identifiedSkier?.name}`,
       });
-      
+
       // Reset after showing success
       setTimeout(() => {
         setTranscriptionText("");
         setIdentifiedSkier(null);
-        setSaveStatus('idle');
+        setSaveStatus("idle");
       }, 3000);
     },
     onError: (error) => {
       console.error("Note save error:", error);
-      setSaveStatus('error');
+      setSaveStatus("error");
       toast({
         title: "Error",
-        description: `Failed to save voice note: ${error.message || 'Unknown error'}`,
+        description: `Failed to save voice note: ${error.message || "Unknown error"}`,
         variant: "destructive",
       });
-      
+
       // Reset after showing error
       setTimeout(() => {
         setTranscriptionText("");
         setIdentifiedSkier(null);
-        setSaveStatus('idle');
+        setSaveStatus("idle");
       }, 3000);
     },
   });
@@ -95,21 +110,22 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
       if (transcript.trim()) {
         const finalTranscript = transcript.trim();
         setTranscriptionText(finalTranscript);
-        
+
         // Try to identify the skier
         const skier = identifySkierFromText(finalTranscript);
         setIdentifiedSkier(skier);
-        
+
         if (skier) {
-          setSaveStatus('saving');
+          setSaveStatus("saving");
           addNoteMutation.mutate({
             skierId: skier.id,
-            content: finalTranscript
+            content: finalTranscript,
           });
         } else {
           toast({
             title: "No skier identified",
-            description: "Please mention a skier's name in your note to assign it automatically",
+            description:
+              "Please mention a skier's name in your note to assign it automatically",
             variant: "destructive",
           });
         }
@@ -117,7 +133,7 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
     } else {
       setTranscriptionText("");
       setIdentifiedSkier(null);
-      setSaveStatus('idle');
+      setSaveStatus("idle");
       startListening();
     }
   };
@@ -125,10 +141,13 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
   if (!hasRecognitionSupport) {
     return (
       <div className="bg-white rounded-xl p-6 shadow-sm">
-        <h3 className="text-lg font-medium text-neutral-800 mb-4">Quick Voice Note</h3>
+        <h3 className="text-lg font-medium text-neutral-800 mb-4">
+          Quick Voice Note
+        </h3>
         <div className="text-center py-8">
           <p className="text-neutral-600">
-            Voice recognition is not supported in your browser. Please use Chrome, Safari, or Edge for the best experience.
+            Voice recognition is not supported in your browser. Please use
+            Chrome, Safari, or Edge for the best experience.
           </p>
         </div>
       </div>
@@ -137,31 +156,35 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm">
-      <h3 className="text-lg font-medium text-neutral-800 mb-2">Quick Voice Note</h3>
-      <p className="text-sm text-neutral-600 mb-4">
+      <h3 className="text-lg font-medium text-neutral-800 mb-2 text-center">
+        Quick Voice Note
+      </h3>
+      <p className="text-sm text-neutral-600 mb-6 text-center">
         Mention a skier's name and I'll automatically assign the note to them
       </p>
-      
-      <div className="text-center space-y-4">
-        {/* Recording Button */}
+
+      <div className="flex flex-col items-center space-y-4">
+        {/* Recording Button - Centered */}
         <button
           onClick={handleToggleRecording}
-          disabled={(saveStatus === 'saving') || (saveStatus === 'success')}
+          disabled={saveStatus === "saving" || saveStatus === "success"}
+          data-testid="button-record"
           className={cn(
-            "w-20 h-20 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center",
-            isListening 
-              ? "bg-red-500 hover:bg-red-600 animate-pulse" 
-              : saveStatus === 'success'
-              ? "bg-green-500"
-              : saveStatus === 'saving'
-              ? "bg-yellow-500"
-              : "bg-accent hover:bg-accent-light",
-            (saveStatus === 'saving' || saveStatus === 'success') && "cursor-not-allowed opacity-75"
+            "w-24 h-24 rounded-full shadow-xl transition-all duration-200 flex items-center justify-center mx-auto",
+            isListening
+              ? "bg-red-500 hover:bg-red-600 animate-pulse scale-110"
+              : saveStatus === "success"
+                ? "bg-green-500"
+                : saveStatus === "saving"
+                  ? "bg-yellow-500"
+                  : "bg-accent hover:bg-accent-light hover:scale-105",
+            (saveStatus === "saving" || saveStatus === "success") &&
+              "cursor-not-allowed opacity-75",
           )}
         >
-          {saveStatus === 'success' ? (
+          {saveStatus === "success" ? (
             <CheckCircle className="text-white text-2xl" size={32} />
-          ) : saveStatus === 'saving' ? (
+          ) : saveStatus === "saving" ? (
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           ) : isListening ? (
             <Square className="text-white text-2xl" size={32} />
@@ -169,17 +192,23 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
             <Mic className="text-white text-2xl" size={32} />
           )}
         </button>
-        
+
         <div className="space-y-2">
           <p className="text-sm text-neutral-600">
-            {saveStatus === 'success' ? "Note saved!" :
-             saveStatus === 'saving' ? "Saving note..." :
-             isListening ? "Recording... tap to stop" : "Tap to start recording"}
+            {saveStatus === "success"
+              ? "Note saved!"
+              : saveStatus === "saving"
+                ? "Saving note..."
+                : isListening
+                  ? "Recording... tap to stop"
+                  : "Tap to start recording"}
           </p>
           {isListening && (
             <div className="flex items-center justify-center space-x-2">
               <div className="w-3 h-3 bg-accent rounded-full animate-pulse"></div>
-              <span className="text-sm text-accent font-medium">Recording...</span>
+              <span className="text-sm text-accent font-medium">
+                Recording...
+              </span>
             </div>
           )}
         </div>
@@ -201,8 +230,11 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
           <div className="mt-4">
             <div className="bg-neutral-50 rounded-lg p-4 text-left">
               <p className="text-sm text-neutral-400 mb-2">
-                {isListening ? "Live transcription:" : 
-                 saveStatus === 'success' ? "Saved note:" : "Transcription:"}
+                {isListening
+                  ? "Live transcription:"
+                  : saveStatus === "success"
+                    ? "Saved note:"
+                    : "Transcription:"}
               </p>
               <p className="text-neutral-800">
                 {transcriptionText || transcript}
@@ -212,13 +244,13 @@ export default function SmartVoiceRecorder({ skiers }: SmartVoiceRecorderProps) 
         ) : null}
 
         {/* Tips */}
-        {!isListening && saveStatus === 'idle' && skiers.length > 0 && (
+        {/* {!isListening && saveStatus === 'idle' && skiers.length > 0 && (
           <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
               💡 Tip: Say something like "John showed great improvement on parallel turns today" to automatically assign the note to John.
             </p>
           </div>
-        )}
+        )} */}
 
         {/* No skiers warning */}
         {skiers.length === 0 && (
