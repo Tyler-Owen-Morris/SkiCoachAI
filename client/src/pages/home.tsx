@@ -199,9 +199,11 @@ export default function Home() {
       <header className="bg-white shadow-sm border-b border-neutral-200 sticky top-0 z-40">
         <div className="px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <FileText className="text-white text-sm" size={16} />
-            </div>
+            <img 
+              src="/attached_assets/app-icon.jpg" 
+              alt="Ski Coach AI" 
+              className="w-8 h-8 rounded-full object-cover"
+            />
             <h1 className="text-xl font-medium text-neutral-800">
               Ski Coach AI
             </h1>
