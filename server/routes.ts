@@ -28,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/skiers', isAuthenticated, async (req: any, res) => {
     try {
       const coachId = req.user.claims.sub;
-      const skiers = await storage.getSkiersByCoach(coachId);
+      const skiers = await storage.getSkiersByCoach(coachId, false);
       
       // Get note counts for each skier
       const skiersWithCounts = await Promise.all(
@@ -46,6 +46,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching skiers:", error);
       res.status(500).json({ message: "Failed to fetch skiers" });
+    }
+  });
+
+  app.get('/api/skiers/archived', isAuthenticated, async (req: any, res) => {
+    try {
+      const coachId = req.user.claims.sub;
+      const skiers = await storage.getSkiersByCoach(coachId, true);
+      
+      // Get note counts for each skier
+      const skiersWithCounts = await Promise.all(
+        skiers.map(async (skier) => {
+          const notes = await storage.getNotesBySkier(skier.id);
+          return {
+            ...skier,
+            noteCount: notes.length,
+            lastNote: notes.length > 0 ? notes[0].createdAt : null,
+          };
+        })
+      );
+      
+      res.json(skiersWithCounts);
+    } catch (error) {
+      console.error("Error fetching archived skiers:", error);
+      res.status(500).json({ message: "Failed to fetch archived skiers" });
     }
   });
 
@@ -80,6 +104,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating skier:", error);
       res.status(500).json({ message: "Failed to create skier" });
+    }
+  });
+
+  app.post('/api/skiers/:id/archive', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user.claims.sub;
+      
+      const skier = await storage.getSkier(id);
+      if (!skier || skier.coachId !== coachId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const archivedSkier = await storage.archiveSkier(id);
+      res.json(archivedSkier);
+    } catch (error) {
+      console.error("Error archiving skier:", error);
+      res.status(500).json({ message: "Failed to archive skier" });
+    }
+  });
+
+  app.post('/api/skiers/:id/unarchive', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user.claims.sub;
+      
+      const skier = await storage.getSkier(id);
+      if (!skier || skier.coachId !== coachId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const unarchivedSkier = await storage.unarchiveSkier(id);
+      res.json(unarchivedSkier);
+    } catch (error) {
+      console.error("Error unarchiving skier:", error);
+      res.status(500).json({ message: "Failed to unarchive skier" });
+    }
+  });
+
+  app.delete('/api/skiers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user.claims.sub;
+      
+      const skier = await storage.getSkier(id);
+      if (!skier || skier.coachId !== coachId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Delete all related data first
+      await storage.deleteSummariesBySkier(id);
+      await storage.deleteNotesBySkier(id);
+      await storage.deleteSkier(id);
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting skier:", error);
+      res.status(500).json({ message: "Failed to delete skier" });
     }
   });
 
