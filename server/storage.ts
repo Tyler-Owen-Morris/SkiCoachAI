@@ -21,17 +21,22 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Skier operations
-  getSkiersByCoach(coachId: string): Promise<Skier[]>;
+  getSkiersByCoach(coachId: string, archived?: boolean): Promise<Skier[]>;
   getSkier(id: string): Promise<Skier | undefined>;
   createSkier(skier: InsertSkier, coachId: string): Promise<Skier>;
+  archiveSkier(id: string): Promise<Skier | undefined>;
+  unarchiveSkier(id: string): Promise<Skier | undefined>;
+  deleteSkier(id: string): Promise<void>;
   
   // Note operations
   getNotesBySkier(skierId: string): Promise<Note[]>;
   createNote(note: InsertNote, coachId: string): Promise<Note>;
+  deleteNotesBySkier(skierId: string): Promise<void>;
   
   // Summary operations
   getLatestSummaryBySkier(skierId: string): Promise<Summary | undefined>;
   createSummary(summary: InsertSummary, coachId: string): Promise<Summary>;
+  deleteSummariesBySkier(skierId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -57,11 +62,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Skier operations
-  async getSkiersByCoach(coachId: string): Promise<Skier[]> {
+  async getSkiersByCoach(coachId: string, archived: boolean = false): Promise<Skier[]> {
     return await db
       .select()
       .from(skiers)
-      .where(eq(skiers.coachId, coachId))
+      .where(and(eq(skiers.coachId, coachId), eq(skiers.archived, archived)))
       .orderBy(desc(skiers.updatedAt));
   }
 
@@ -76,6 +81,28 @@ export class DatabaseStorage implements IStorage {
       .values({ ...skier, coachId })
       .returning();
     return newSkier;
+  }
+
+  async archiveSkier(id: string): Promise<Skier | undefined> {
+    const [skier] = await db
+      .update(skiers)
+      .set({ archived: true, updatedAt: new Date() })
+      .where(eq(skiers.id, id))
+      .returning();
+    return skier;
+  }
+
+  async unarchiveSkier(id: string): Promise<Skier | undefined> {
+    const [skier] = await db
+      .update(skiers)
+      .set({ archived: false, updatedAt: new Date() })
+      .where(eq(skiers.id, id))
+      .returning();
+    return skier;
+  }
+
+  async deleteSkier(id: string): Promise<void> {
+    await db.delete(skiers).where(eq(skiers.id, id));
   }
 
   // Note operations
@@ -95,6 +122,10 @@ export class DatabaseStorage implements IStorage {
     return newNote;
   }
 
+  async deleteNotesBySkier(skierId: string): Promise<void> {
+    await db.delete(notes).where(eq(notes.skierId, skierId));
+  }
+
   // Summary operations
   async getLatestSummaryBySkier(skierId: string): Promise<Summary | undefined> {
     const [summary] = await db
@@ -112,6 +143,10 @@ export class DatabaseStorage implements IStorage {
       .values({ ...summary, coachId })
       .returning();
     return newSummary;
+  }
+
+  async deleteSummariesBySkier(skierId: string): Promise<void> {
+    await db.delete(summaries).where(eq(summaries.skierId, skierId));
   }
 }
 
