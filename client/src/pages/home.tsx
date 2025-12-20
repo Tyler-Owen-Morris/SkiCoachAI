@@ -6,7 +6,6 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Input } from "@/components/ui/input";
 import { Search, Users, FileText } from "lucide-react";
 import SkierCard from "@/components/skier-card";
-import BottomNavigation from "@/components/bottom-navigation";
 import FloatingActionButton from "@/components/floating-action-button";
 import LoadingOverlay from "@/components/loading-overlay";
 import SmartVoiceRecorder from "@/components/smart-voice-recorder";
@@ -149,7 +148,6 @@ export default function Home() {
         </div>
       </main>
 
-      <BottomNavigation active="home" />
       <FloatingActionButton onClick={handleAddSkier} />
     </div>
   );
