@@ -4,12 +4,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, MoreVertical, Sparkles } from "lucide-react";
+import { ArrowLeft, MoreVertical, Sparkles, Archive, Trash2 } from "lucide-react";
 import VoiceRecorder from "@/components/voice-recorder";
 import LoadingOverlay from "@/components/loading-overlay";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatDistanceToNow } from "date-fns";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface Note {
   id: string;
@@ -35,6 +51,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -132,8 +149,81 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/skiers/${params.id}/archive`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers"] });
+      toast({
+        title: "Success",
+        description: "Skier archived successfully!",
+      });
+      setLocation("/");
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to archive skier.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/skiers/${params.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers"] });
+      toast({
+        title: "Success",
+        description: "Skier deleted successfully!",
+      });
+      setLocation("/");
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete skier.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSaveNote = (content: string) => {
     createNoteMutation.mutate(content);
+  };
+
+  const handleArchive = () => {
+    archiveMutation.mutate();
+  };
+
+  const handleDelete = () => {
+    setShowDeleteDialog(false);
+    deleteMutation.mutate();
   };
 
   const handleGenerateSummary = () => {
@@ -188,11 +278,56 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
             </h2>
             <p className="text-sm text-neutral-600">{skier.level} Level</p>
           </div>
-          <button className="p-2 rounded-full hover:bg-neutral-100 transition-colors">
-            <MoreVertical className="text-neutral-600" size={20} />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button 
+                className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
+                data-testid="button-skier-menu"
+              >
+                <MoreVertical className="text-neutral-600" size={20} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem 
+                onClick={handleArchive}
+                data-testid="button-archive-skier"
+              >
+                <Archive className="mr-2" size={16} />
+                Archive Skier
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-red-600 focus:text-red-600"
+                data-testid="button-delete-skier"
+              >
+                <Trash2 className="mr-2" size={16} />
+                Delete Skier
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {skier.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this skier and all their notes. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="p-4 space-y-6">
         {/* Voice Recording Section */}

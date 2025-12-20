@@ -3,13 +3,35 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
-import { Search, Users, FileText } from "lucide-react";
+import { Search, Users, FileText, ChevronDown, ChevronRight, MoreVertical, RotateCcw, Trash2 } from "lucide-react";
 import SkierCard from "@/components/skier-card";
 import FloatingActionButton from "@/components/floating-action-button";
 import LoadingOverlay from "@/components/loading-overlay";
 import SmartVoiceRecorder from "@/components/smart-voice-recorder";
 import { useLocation } from "wouter";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface SkierWithStats {
   id: string;
@@ -23,12 +45,19 @@ interface SkierWithStats {
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const [deleteSkierId, setDeleteSkierId] = useState<string | null>(null);
+  const [deleteSkierName, setDeleteSkierName] = useState<string>("");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: skiers, isLoading, error } = useQuery<SkierWithStats[], Error>({
     queryKey: ["/api/skiers"],
+  });
+
+  const { data: archivedSkiers } = useQuery<SkierWithStats[], Error>({
+    queryKey: ["/api/skiers/archived"],
   });
 
   // Handle auth errors with useEffect instead of onError
@@ -42,6 +71,82 @@ export default function Home() {
       window.location.href = "/api/login";
     }, 500);
   }
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (skierId: string) => {
+      await apiRequest("POST", `/api/skiers/${skierId}/unarchive`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers/archived"] });
+      toast({
+        title: "Success",
+        description: "Skier restored successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to restore skier.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (skierId: string) => {
+      await apiRequest("DELETE", `/api/skiers/${skierId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers/archived"] });
+      toast({
+        title: "Success",
+        description: "Skier deleted successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete skier.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUnarchive = (skierId: string) => {
+    unarchiveMutation.mutate(skierId);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteSkierId) {
+      deleteMutation.mutate(deleteSkierId);
+      setDeleteSkierId(null);
+      setDeleteSkierName("");
+    }
+  };
 
   const filteredSkiers = skiers?.filter((skier: SkierWithStats) =>
     skier.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -146,7 +251,91 @@ export default function Home() {
             ))
           )}
         </div>
+
+        {/* Archived Skiers Section */}
+        {archivedSkiers && archivedSkiers.length > 0 && (
+          <Collapsible open={archivedOpen} onOpenChange={setArchivedOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full py-2" data-testid="button-toggle-archived">
+              <div className="flex items-center space-x-2">
+                {archivedOpen ? (
+                  <ChevronDown size={16} className="text-neutral-500" />
+                ) : (
+                  <ChevronRight size={16} className="text-neutral-500" />
+                )}
+                <h2 className="text-lg font-medium text-neutral-600">Archived Skiers</h2>
+              </div>
+              <span className="text-sm text-neutral-500">{archivedSkiers.length} archived</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-2 mt-2">
+              {archivedSkiers.map((skier: SkierWithStats) => (
+                <div
+                  key={skier.id}
+                  className="bg-neutral-100 rounded-xl p-4 flex items-center justify-between"
+                  data-testid={`card-archived-skier-${skier.id}`}
+                >
+                  <div>
+                    <h3 className="font-medium text-neutral-700">{skier.name}</h3>
+                    <p className="text-sm text-neutral-500">
+                      {skier.level} Level • {skier.noteCount} notes
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        className="p-2 rounded-full hover:bg-neutral-200 transition-colors"
+                        data-testid={`button-archived-menu-${skier.id}`}
+                      >
+                        <MoreVertical className="text-neutral-500" size={16} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem 
+                        onClick={() => handleUnarchive(skier.id)}
+                        data-testid={`button-unarchive-${skier.id}`}
+                      >
+                        <RotateCcw className="mr-2" size={16} />
+                        Unarchive Skier
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          setDeleteSkierId(skier.id);
+                          setDeleteSkierName(skier.name);
+                        }}
+                        className="text-red-600 focus:text-red-600"
+                        data-testid={`button-delete-archived-${skier.id}`}
+                      >
+                        <Trash2 className="mr-2" size={16} />
+                        Delete Skier
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </main>
+
+      <AlertDialog open={!!deleteSkierId} onOpenChange={(open) => !open && setDeleteSkierId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteSkierName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this skier and all their notes. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <FloatingActionButton onClick={handleAddSkier} />
     </div>
