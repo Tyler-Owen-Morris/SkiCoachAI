@@ -5,7 +5,17 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
-import { Search, Users, FileText, ChevronDown, ChevronRight, MoreVertical, RotateCcw, Trash2, LogOut } from "lucide-react";
+import {
+  Search,
+  Users,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  MoreVertical,
+  RotateCcw,
+  Trash2,
+  LogOut,
+} from "lucide-react";
 import SkierCard from "@/components/skier-card";
 import FloatingActionButton from "@/components/floating-action-button";
 import LoadingOverlay from "@/components/loading-overlay";
@@ -59,7 +69,11 @@ export default function Home() {
     window.location.href = "/api/logout";
   };
 
-  const { data: skiers, isLoading, error } = useQuery<SkierWithStats[], Error>({
+  const {
+    data: skiers,
+    isLoading,
+    error,
+  } = useQuery<SkierWithStats[], Error>({
     queryKey: ["/api/skiers"],
   });
 
@@ -155,12 +169,17 @@ export default function Home() {
     }
   };
 
-  const filteredSkiers = skiers?.filter((skier: SkierWithStats) =>
-    skier.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredSkiers =
+    skiers?.filter((skier: SkierWithStats) =>
+      skier.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    ) || [];
 
   const totalSkiers = skiers?.length || 0;
-  const totalNotes = skiers?.reduce((sum: number, skier: SkierWithStats) => sum + skier.noteCount, 0) || 0;
+  const totalNotes =
+    skiers?.reduce(
+      (sum: number, skier: SkierWithStats) => sum + skier.noteCount,
+      0,
+    ) || 0;
 
   const handleSkierClick = (skierId: string) => {
     setLocation(`/skier/${skierId}`);
@@ -183,11 +202,13 @@ export default function Home() {
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
               <FileText className="text-white text-sm" size={16} />
             </div>
-            <h1 className="text-xl font-medium text-neutral-800">Ski Coach AI</h1>
+            <h1 className="text-xl font-medium text-neutral-800">
+              Ski Coach AI
+            </h1>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button 
+              <button
                 className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
                 data-testid="button-header-menu"
               >
@@ -204,7 +225,7 @@ export default function Home() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-red-600 focus:text-red-600"
                 data-testid="button-logout"
@@ -226,7 +247,9 @@ export default function Home() {
             <div className="text-sm text-neutral-600">Total Skiers</div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="text-2xl font-bold text-secondary">{totalNotes}</div>
+            <div className="text-2xl font-bold text-secondary">
+              {totalNotes}
+            </div>
             <div className="text-sm text-neutral-600">Voice Notes</div>
           </div>
         </div>
@@ -236,7 +259,10 @@ export default function Home() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400" size={16} />
+          <Search
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400"
+            size={16}
+          />
           <Input
             type="text"
             placeholder="Search skiers..."
@@ -249,10 +275,14 @@ export default function Home() {
         {/* Skier List */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-neutral-800">Your Skiers</h2>
-            <span className="text-sm text-neutral-600">{filteredSkiers.length} skiers</span>
+            <h2 className="text-lg font-medium text-neutral-800">
+              Your Skiers
+            </h2>
+            <span className="text-sm text-neutral-600">
+              {filteredSkiers.length} skiers
+            </span>
           </div>
-          
+
           {filteredSkiers.length === 0 ? (
             <div className="bg-white rounded-xl p-8 shadow-sm text-center">
               <Users className="mx-auto mb-4 text-neutral-400" size={48} />
@@ -260,10 +290,9 @@ export default function Home() {
                 {searchQuery ? "No skiers found" : "No skiers yet"}
               </h3>
               <p className="text-neutral-600 mb-4">
-                {searchQuery 
-                  ? "Try adjusting your search terms" 
-                  : "Add your first skier to get started with voice notes and AI summaries"
-                }
+                {searchQuery
+                  ? "Try adjusting your search terms"
+                  : "Add your first skier to get started with voice notes and AI summaries"}
               </p>
               {!searchQuery && (
                 <button
@@ -287,19 +316,26 @@ export default function Home() {
 
         {/* Archived Skiers Section */}
         <Collapsible open={archivedOpen} onOpenChange={setArchivedOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full py-2" data-testid="button-toggle-archived">
+          <CollapsibleTrigger
+            className="flex items-center justify-between w-full py-2"
+            data-testid="button-toggle-archived"
+          >
             <div className="flex items-center space-x-2">
               {archivedOpen ? (
                 <ChevronDown size={16} className="text-neutral-500" />
               ) : (
                 <ChevronRight size={16} className="text-neutral-500" />
               )}
-              <h2 className="text-lg font-medium text-neutral-600">Archived Skiers</h2>
+              <h2 className="text-lg font-medium text-neutral-600">
+                Archived Skiers
+              </h2>
             </div>
-            <span className="text-sm text-neutral-500">{archivedSkiers?.length || 0} archived</span>
+            <span className="text-sm text-neutral-500">
+              {archivedSkiers?.length || 0} archived
+            </span>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 mt-2">
-            {(!archivedSkiers || archivedSkiers.length === 0) ? (
+            {!archivedSkiers || archivedSkiers.length === 0 ? (
               <div className="bg-neutral-100 rounded-xl p-4 text-center">
                 <p className="text-sm text-neutral-500">No archived skiers</p>
               </div>
@@ -311,14 +347,16 @@ export default function Home() {
                   data-testid={`card-archived-skier-${skier.id}`}
                 >
                   <div>
-                    <h3 className="font-medium text-neutral-700">{skier.name}</h3>
+                    <h3 className="font-medium text-neutral-700">
+                      {skier.name}
+                    </h3>
                     <p className="text-sm text-neutral-500">
                       {skier.level} Level • {skier.noteCount} notes
                     </p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button 
+                      <button
                         className="p-2 rounded-full hover:bg-neutral-200 transition-colors"
                         data-testid={`button-archived-menu-${skier.id}`}
                       >
@@ -326,14 +364,14 @@ export default function Home() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => handleUnarchive(skier.id)}
                         data-testid={`button-unarchive-${skier.id}`}
                       >
                         <RotateCcw className="mr-2" size={16} />
                         Unarchive Skier
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => {
                           setDeleteSkierId(skier.id);
                           setDeleteSkierName(skier.name);
@@ -353,17 +391,23 @@ export default function Home() {
         </Collapsible>
       </main>
 
-      <AlertDialog open={!!deleteSkierId} onOpenChange={(open) => !open && setDeleteSkierId(null)}>
+      <AlertDialog
+        open={!!deleteSkierId}
+        onOpenChange={(open) => !open && setDeleteSkierId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleteSkierName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this skier and all their notes. This action cannot be undone.
+              This will permanently delete this skier and all their notes. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleDeleteConfirm}
               className="bg-red-600 hover:bg-red-700"
               data-testid="button-confirm-delete"
