@@ -42,7 +42,7 @@ Here are the coaching notes:
 
 ${notesText}
 
-Please provide a concise but thorough summary in paragraph form that would be useful for both the coach and potentially the skier. Focus on constructive feedback and clear next steps.`;
+Please provide a concise summary in bullet point format that would be useful for both the coach and potentially the skier. Focus on consolidating the coaching notes so that they are most effective for the coach to recall their overall intent.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
