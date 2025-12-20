@@ -7,6 +7,7 @@ import {
   timestamp,
   varchar,
   integer,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -42,6 +43,7 @@ export const skiers = pgTable("skiers", {
   age: integer("age"),
   initialNotes: text("initial_notes"),
   coachId: varchar("coach_id").notNull().references(() => users.id),
+  archived: boolean("archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
