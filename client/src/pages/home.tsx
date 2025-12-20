@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
-import { Search, Users, FileText, ChevronDown, ChevronRight, MoreVertical, RotateCcw, Trash2 } from "lucide-react";
+import { Search, Users, FileText, ChevronDown, ChevronRight, MoreVertical, RotateCcw, Trash2, LogOut } from "lucide-react";
 import SkierCard from "@/components/skier-card";
 import FloatingActionButton from "@/components/floating-action-button";
 import LoadingOverlay from "@/components/loading-overlay";
@@ -21,6 +21,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -51,6 +53,11 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
 
   const { data: skiers, isLoading, error } = useQuery<SkierWithStats[], Error>({
     queryKey: ["/api/skiers"],
@@ -178,9 +185,35 @@ export default function Home() {
             </div>
             <h1 className="text-xl font-medium text-neutral-800">Ski Coach AI</h1>
           </div>
-          <button className="p-2 rounded-full hover:bg-neutral-100 transition-colors">
-            <span className="text-neutral-600">⋮</span>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button 
+                className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
+                data-testid="button-header-menu"
+              >
+                <MoreVertical className="text-neutral-600" size={20} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-xs text-neutral-500">Signed in as</p>
+                  <p className="text-sm font-medium truncate">
+                    {(user as any)?.email || (user as any)?.username || "Coach"}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleLogout}
+                className="text-red-600 focus:text-red-600"
+                data-testid="button-logout"
+              >
+                <LogOut className="mr-2" size={16} />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
