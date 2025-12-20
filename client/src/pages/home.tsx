@@ -253,21 +253,25 @@ export default function Home() {
         </div>
 
         {/* Archived Skiers Section */}
-        {archivedSkiers && archivedSkiers.length > 0 && (
-          <Collapsible open={archivedOpen} onOpenChange={setArchivedOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full py-2" data-testid="button-toggle-archived">
-              <div className="flex items-center space-x-2">
-                {archivedOpen ? (
-                  <ChevronDown size={16} className="text-neutral-500" />
-                ) : (
-                  <ChevronRight size={16} className="text-neutral-500" />
-                )}
-                <h2 className="text-lg font-medium text-neutral-600">Archived Skiers</h2>
+        <Collapsible open={archivedOpen} onOpenChange={setArchivedOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full py-2" data-testid="button-toggle-archived">
+            <div className="flex items-center space-x-2">
+              {archivedOpen ? (
+                <ChevronDown size={16} className="text-neutral-500" />
+              ) : (
+                <ChevronRight size={16} className="text-neutral-500" />
+              )}
+              <h2 className="text-lg font-medium text-neutral-600">Archived Skiers</h2>
+            </div>
+            <span className="text-sm text-neutral-500">{archivedSkiers?.length || 0} archived</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 mt-2">
+            {(!archivedSkiers || archivedSkiers.length === 0) ? (
+              <div className="bg-neutral-100 rounded-xl p-4 text-center">
+                <p className="text-sm text-neutral-500">No archived skiers</p>
               </div>
-              <span className="text-sm text-neutral-500">{archivedSkiers.length} archived</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-2 mt-2">
-              {archivedSkiers.map((skier: SkierWithStats) => (
+            ) : (
+              archivedSkiers.map((skier: SkierWithStats) => (
                 <div
                   key={skier.id}
                   className="bg-neutral-100 rounded-xl p-4 flex items-center justify-between"
@@ -310,10 +314,10 @@ export default function Home() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
+              ))
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </main>
 
       <AlertDialog open={!!deleteSkierId} onOpenChange={(open) => !open && setDeleteSkierId(null)}>

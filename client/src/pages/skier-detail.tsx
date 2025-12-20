@@ -155,6 +155,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/skiers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/skiers/archived"] });
       toast({
         title: "Success",
         description: "Skier archived successfully!",
