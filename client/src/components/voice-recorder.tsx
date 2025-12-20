@@ -50,17 +50,21 @@ export default function VoiceRecorder({ onSave }: VoiceRecorderProps) {
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm">
-      <h3 className="text-lg font-medium text-neutral-800 mb-4">Record Voice Note</h3>
+      <h3 className="text-lg font-medium text-neutral-800 mb-2 text-center">Record Voice Note</h3>
+      <p className="text-sm text-neutral-600 mb-6 text-center">
+        Record a voice note for this skier
+      </p>
       
-      <div className="text-center space-y-4">
-        {/* Recording Button */}
+      <div className="flex flex-col items-center space-y-4">
+        {/* Recording Button - Centered */}
         <button
           onClick={handleToggleRecording}
+          data-testid="button-record-voice"
           className={cn(
-            "w-20 h-20 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center",
+            "w-24 h-24 rounded-full shadow-xl transition-all duration-200 flex items-center justify-center mx-auto",
             isListening 
-              ? "bg-red-500 hover:bg-red-600 animate-pulse" 
-              : "bg-accent hover:bg-accent-light"
+              ? "bg-red-500 hover:bg-red-600 animate-pulse scale-110" 
+              : "bg-accent hover:bg-accent-light hover:scale-105"
           )}
         >
           {isListening ? (
