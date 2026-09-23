@@ -15,7 +15,7 @@ workflows:
         bundle_identifier: com.tandoproductions.skicoachai
       vars:
         # App Store Connect > your app > App Information > Apple ID (numeric).
-        APP_STORE_APPLE_ID: "0000000000"
+        APP_STORE_APPLE_ID: "6815423388"
         # Your Render server. Baked into the app; can be changed in the app's Settings.
         VITE_API_BASE: "https://skicoach-api.onrender.com"
       node: 22
