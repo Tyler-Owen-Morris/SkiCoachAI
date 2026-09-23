@@ -1,66 +1,47 @@
 import { ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-interface Skier {
-  id: string;
-  name: string;
-  level: string;
-  noteCount: number;
-  lastNote: string | null;
-}
+import type { SkierWithStats } from "@/data/repo";
 
 interface SkierCardProps {
-  skier: Skier;
+  skier: SkierWithStats;
   onClick: () => void;
 }
 
-export default function SkierCard({ skier, onClick }: SkierCardProps) {
-  const getStatusColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case "beginner":
-        return "bg-orange-500";
-      case "intermediate":
-        return "bg-secondary";
-      case "advanced":
-        return "bg-blue-500";
-      case "expert":
-        return "bg-purple-500";
-      default:
-        return "bg-neutral-400";
-    }
-  };
+const LEVEL_COLORS: Record<string, string> = {
+  beginner: "bg-orange-500",
+  intermediate: "bg-secondary",
+  advanced: "bg-blue-500",
+  expert: "bg-purple-500",
+};
 
+export default function SkierCard({ skier, onClick }: SkierCardProps) {
   return (
-    <div
+    <button
       onClick={onClick}
-      className="bg-white rounded-xl p-4 shadow-sm border border-neutral-100 hover:shadow-md transition-shadow cursor-pointer"
+      className="w-full text-left bg-white rounded-xl p-4 shadow-sm border border-neutral-100 hover:shadow-md transition-shadow"
     >
       <div className="flex items-center space-x-4">
-        {/* Avatar placeholder */}
         <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
-          <span className="text-white font-medium text-lg">
-            {skier.name.charAt(0).toUpperCase()}
-          </span>
+          <span className="text-white font-medium text-lg">{skier.name.charAt(0).toUpperCase()}</span>
         </div>
-        
-        <div className="flex-1">
-          <h3 className="font-medium text-neutral-800">{skier.name}</h3>
-          <p className="text-sm text-neutral-600">
-            {skier.level} • {skier.noteCount} notes
+
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-neutral-800 truncate">{skier.name}</h3>
+          <p className="text-sm text-neutral-600 capitalize">
+            {skier.level} • {skier.noteCount} {skier.noteCount === 1 ? "note" : "notes"}
           </p>
           <div className="flex items-center space-x-2 mt-1">
-            <span className={`inline-block w-2 h-2 rounded-full ${getStatusColor(skier.level)}`}></span>
+            <span className={`inline-block w-2 h-2 rounded-full ${LEVEL_COLORS[skier.level] ?? "bg-neutral-400"}`}></span>
             <span className="text-xs text-neutral-500">
-              {skier.lastNote 
-                ? `Last note: ${formatDistanceToNow(new Date(skier.lastNote), { addSuffix: true })}`
-                : "No notes yet"
-              }
+              {skier.lastNoteAt
+                ? `Last note ${formatDistanceToNow(new Date(skier.lastNoteAt), { addSuffix: true })}`
+                : "No notes yet"}
             </span>
           </div>
         </div>
-        
+
         <ChevronRight className="text-neutral-400" size={20} />
       </div>
-    </div>
+    </button>
   );
 }

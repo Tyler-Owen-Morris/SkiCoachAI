@@ -1,133 +1,92 @@
-import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
-  jsonb,
-  pgTable,
+  integer,
+  pgSchema,
   text,
   timestamp,
   varchar,
-  integer,
 } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-import { relations } from "drizzle-orm";
 
-// Session storage table (required for Replit Auth)
-export const sessions = pgTable(
-  "sessions",
+// All tables live in their own Postgres schema so they never collide with
+// tables left over from the original Replit version of the app.
+export const skicoach = pgSchema("skicoach");
+
+// A coach account. The id is the device id generated on the phone, so the
+// same device always maps back to the same account after re-login.
+export const coaches = skicoach.table("coaches", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  authMode: varchar("auth_mode", { length: 16 }).notNull(), // passcode | byok
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Every syncable row has:
+//  - an id generated on the device (so retries are idempotent)
+//  - clientUpdatedAt: the last-writer-wins clock (device time of the edit)
+//  - updatedAt: server time of the last write, used as the pull cursor
+//  - deletedAt: tombstone so deletes sync like any other change
+export const skiers = skicoach.table(
+  "skiers",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    id: varchar("id", { length: 64 }).primaryKey(),
+    coachId: varchar("coach_id", { length: 64 }).notNull().references(() => coaches.id),
+    name: text("name").notNull(),
+    level: varchar("level", { length: 32 }).notNull(),
+    age: integer("age"),
+    initialNotes: text("initial_notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (t) => [index("skiers_coach_updated_idx").on(t.coachId, t.updatedAt)],
 );
 
-// User storage table (required for Replit Auth)
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const notes = skicoach.table(
+  "notes",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    coachId: varchar("coach_id", { length: 64 }).notNull().references(() => coaches.id),
+    // Null while a voice note has not been matched to a skier yet.
+    skierId: varchar("skier_id", { length: 64 }),
+    content: text("content").notNull(),
+    deviceTranscript: text("device_transcript"),
+    cloudTranscript: text("cloud_transcript"),
+    transcriptSource: varchar("transcript_source", { length: 16 }).notNull(), // device | cloud | typed
+    assignmentStatus: varchar("assignment_status", { length: 16 }).notNull(), // manual | local-guess | ai | ai-uncertain | unassigned
+    userEdited: boolean("user_edited").notNull().default(false),
+    hasAudio: boolean("has_audio").notNull().default(false),
+    audioDurationMs: integer("audio_duration_ms"),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("notes_coach_updated_idx").on(t.coachId, t.updatedAt),
+    index("notes_skier_idx").on(t.skierId),
+  ],
+);
 
-// Skiers table
-export const skiers = pgTable("skiers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  level: varchar("level").notNull(), // beginner, intermediate, advanced, expert
-  age: integer("age"),
-  initialNotes: text("initial_notes"),
-  coachId: varchar("coach_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const summaries = skicoach.table(
+  "summaries",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    coachId: varchar("coach_id", { length: 64 }).notNull().references(() => coaches.id),
+    skierId: varchar("skier_id", { length: 64 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull(), // pending | ready | error
+    content: text("content"), // JSON string of SummaryContent
+    error: text("error"),
+    noteCount: integer("note_count"),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("summaries_coach_updated_idx").on(t.coachId, t.updatedAt)],
+);
 
-// Notes table
-export const notes = pgTable("notes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  content: text("content").notNull(),
-  skierId: varchar("skier_id").notNull().references(() => skiers.id),
-  coachId: varchar("coach_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Summaries table
-export const summaries = pgTable("summaries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  content: text("content").notNull(),
-  skierId: varchar("skier_id").notNull().references(() => skiers.id),
-  coachId: varchar("coach_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Relations
-export const usersRelations = relations(users, ({ many }) => ({
-  skiers: many(skiers),
-  notes: many(notes),
-  summaries: many(summaries),
-}));
-
-export const skiersRelations = relations(skiers, ({ one, many }) => ({
-  coach: one(users, {
-    fields: [skiers.coachId],
-    references: [users.id],
-  }),
-  notes: many(notes),
-  summaries: many(summaries),
-}));
-
-export const notesRelations = relations(notes, ({ one }) => ({
-  skier: one(skiers, {
-    fields: [notes.skierId],
-    references: [skiers.id],
-  }),
-  coach: one(users, {
-    fields: [notes.coachId],
-    references: [users.id],
-  }),
-}));
-
-export const summariesRelations = relations(summaries, ({ one }) => ({
-  skier: one(skiers, {
-    fields: [summaries.skierId],
-    references: [skiers.id],
-  }),
-  coach: one(users, {
-    fields: [summaries.coachId],
-    references: [users.id],
-  }),
-}));
-
-// Insert schemas
-export const insertSkierSchema = createInsertSchema(skiers).omit({
-  id: true,
-  coachId: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertNoteSchema = createInsertSchema(notes).omit({
-  id: true,
-  coachId: true,
-  createdAt: true,
-});
-
-export const insertSummarySchema = createInsertSchema(summaries).omit({
-  id: true,
-  coachId: true,
-  createdAt: true,
-});
-
-// Types
-export type UpsertUser = typeof users.$inferInsert;
-export type User = typeof users.$inferSelect;
-export type Skier = typeof skiers.$inferSelect;
-export type InsertSkier = z.infer<typeof insertSkierSchema>;
-export type Note = typeof notes.$inferSelect;
-export type InsertNote = z.infer<typeof insertNoteSchema>;
-export type Summary = typeof summaries.$inferSelect;
-export type InsertSummary = z.infer<typeof insertSummarySchema>;
+export type Coach = typeof coaches.$inferSelect;
+export type SkierRow = typeof skiers.$inferSelect;
+export type NoteRow = typeof notes.$inferSelect;
+export type SummaryRow = typeof summaries.$inferSelect;

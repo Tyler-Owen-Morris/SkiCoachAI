@@ -1,0 +1,17 @@
+{
+  "name": "skicoach-voice-note",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor plugin: record voice notes to m4a with live on-device speech recognition",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "files": ["ios/", "SkicoachVoiceNote.podspec", "index.js"],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  }
+}

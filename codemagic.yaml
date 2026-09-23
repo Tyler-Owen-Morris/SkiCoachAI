@@ -1,0 +1,49 @@
+# Builds the iOS app on a cloud Mac and uploads it to TestFlight.
+# One-time setup is described in DEPLOY.md (steps 4-6).
+workflows:
+  ios-testflight:
+    name: iOS to TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # The name you give the App Store Connect API key in Codemagic
+      # (Team settings > Integrations > Developer Portal).
+      app_store_connect: SkiCoach ASC Key
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.tandoproductions.skicoachai
+      vars:
+        # App Store Connect > your app > App Information > Apple ID (numeric).
+        APP_STORE_APPLE_ID: "0000000000"
+        # Your Render server. Baked into the app; can be changed in the app's Settings.
+        VITE_API_BASE: "https://skicoach-api.onrender.com"
+      node: 22
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Run tests
+        script: npm test
+      - name: Build web app
+        script: npm run build:client
+      - name: Sync Capacitor iOS project
+        script: npx cap sync ios
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Set build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          NEXT=$(( ${LATEST:-0} + 1 ))
+          echo "Build number: $NEXT"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $NEXT;/g" ios/App/App.xcodeproj/project.pbxproj
+      - name: Build IPA
+        script: xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

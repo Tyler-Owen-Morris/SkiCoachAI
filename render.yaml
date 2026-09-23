@@ -1,0 +1,26 @@
+# Render Blueprint for the API server (free plan). See DEPLOY.md step 2.
+services:
+  - type: web
+    name: skicoach-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEMO_PASSCODE
+        sync: false
+      - key: TOKEN_SECRET
+        generateValue: true
+      - key: OPENAI_TRANSCRIBE_MODEL
+        value: gpt-transcribe
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-5.6-luna
+      - key: AI_RATE_LIMIT_PER_HOUR
+        value: "120"
