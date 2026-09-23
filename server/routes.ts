@@ -154,6 +154,10 @@ export function registerRoutes(app: Express) {
       let current = note;
       const createdNotes = [];
 
+      console.log(
+        `[transcribe] note=${note.id} file=${req.file ? `${req.file.originalname} ${req.file.mimetype} ${req.file.size}B` : "none"} ` +
+          `status=${note.assignmentStatus} hasCloud=${!!note.cloudTranscript} userKey=${!!req.userOpenAIKey} mode=${req.authMode}`,
+      );
       if (!current.cloudTranscript) {
         if (!req.file) throw new HttpError(400, "No audio file provided");
         const text = await transcribeAudio(
@@ -270,13 +274,16 @@ export function registerRoutes(app: Express) {
     }),
   );
 
-  app.use("/api", (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  app.use("/api", (err: unknown, req: Request, res: Response, next: NextFunction) => {
     if (res.headersSent) return next(err);
     if (err instanceof multer.MulterError) {
+      console.warn(`[api-error] ${req.method} ${req.path} 413 upload: ${err.message}`);
       return res.status(413).json({ message: err.message });
     }
     const httpErr = err instanceof HttpError ? err : isOpenAIish(err) ? toHttpError(err) : null;
     if (httpErr) {
+      // Why a request was refused. Never includes keys or note text.
+      console.warn(`[api-error] ${req.method} ${req.path} ${httpErr.status} ${httpErr.code ?? "-"}: ${httpErr.message}`);
       return res.status(httpErr.status).json({ message: httpErr.message, code: httpErr.code });
     }
     console.error("Unhandled API error:", err);

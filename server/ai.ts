@@ -35,6 +35,7 @@ export function toHttpError(err: unknown): HttpError {
   if (err instanceof HttpError) return err;
   if (err instanceof OpenAI.APIError) {
     const code = (err as { code?: string | null }).code;
+    console.warn(`[openai-error] status=${err.status} code=${code ?? "-"} type=${err.type ?? "-"}: ${err.message}`);
     if (err.status === 401 || err.status === 403) {
       return new HttpError(424, "OpenAI rejected the API key", ERROR_CODES.openaiKeyInvalid);
     }
@@ -46,6 +47,7 @@ export function toHttpError(err: unknown): HttpError {
     }
     return new HttpError(503, "OpenAI is temporarily unavailable", ERROR_CODES.openaiUnavailable);
   }
+  console.warn(`[ai-error] ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`);
   return new HttpError(502, "AI request failed", ERROR_CODES.openaiUnavailable);
 }
 
