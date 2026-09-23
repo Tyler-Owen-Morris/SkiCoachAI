@@ -15,7 +15,7 @@ import {
   saveVoiceNote,
   updateSkier,
 } from "@/data/repo";
-import { backoffMs } from "./engine";
+import { backoffMs, SyncEngine } from "./engine";
 import { FakeServer, makeEngine, memoryDb } from "./test-helpers";
 
 const skierInput = { name: "Jake Moss", level: "intermediate" as const, age: 12, initialNotes: null };
@@ -296,5 +296,32 @@ describe("sync engine", () => {
     await engine.requestSync();
     const inbox = await listInboxNotes(db);
     expect(inbox.map((n) => n.id)).toContain(note.id);
+  });
+
+  it("parks a transcription with the exact reason when the recording can't be read", async () => {
+    const db = await memoryDb();
+    const server = new FakeServer();
+    const clock = { now: Date.now() };
+    const engine = new SyncEngine({
+      db,
+      api: server.api,
+      isSignedIn: () => true,
+      readAudio: async () => {
+        throw new Error("empty read (status 0, type basic)");
+      },
+      onDataChanged: () => undefined,
+      now: () => clock.now,
+      random: () => 0.5,
+      setTimer: () => 1,
+      clearTimer: () => undefined,
+    });
+    await saveVoiceNote(db, voiceNote(null));
+    await engine.requestSync();
+    const failed = (await allOps(db)).filter((o) => o.state === "failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0].kind).toBe("transcribe");
+    expect(failed[0].lastError).toContain("empty read (status 0");
+    // The note itself still synced.
+    expect(server.notes.size).toBe(1);
   });
 });

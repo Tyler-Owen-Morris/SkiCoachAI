@@ -204,14 +204,27 @@ function webRecorder(): Recorder {
 
 export const recorder: Recorder = isNative() ? nativeRecorder() : webRecorder();
 
+export class AudioReadError extends Error {}
+
+// Returns null only when the recording file doesn't exist. Any other failure
+// throws AudioReadError with details, so the cause shows up in Settings.
 export async function readAudio(fileName: string): Promise<Blob | null> {
   if (isNative()) {
     const { path, exists } = await VoiceNote.getRecordingPath({ fileName });
     if (!exists) return null;
-    const res = await fetch(Capacitor.convertFileSrc(path));
-    if (!res.ok) return null;
+    let res: Response;
+    try {
+      res = await fetch(Capacitor.convertFileSrc(path));
+    } catch (err) {
+      throw new AudioReadError(`fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    // Capacitor serves media files (.m4a) with a plain, non-HTTP response, so
+    // the status can be 0 even though the bytes arrive. Judge by the bytes.
     const blob = await res.blob();
-    return blob.type ? blob : new Blob([blob], { type: "audio/mp4" });
+    if (blob.size === 0) {
+      throw new AudioReadError(`empty read (status ${res.status}, type ${res.type || "-"})`);
+    }
+    return new Blob([blob], { type: "audio/mp4" });
   }
   return (await idbGet<Blob>("audio", fileName)) ?? null;
 }

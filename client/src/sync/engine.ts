@@ -353,8 +353,13 @@ export class SyncEngine {
     const { db, api } = this.deps;
     const note = await getNote(db, op.entityId);
     if (!note || note.deletedAt || !note.audioFile) return;
-    const audio = await this.deps.readAudio(note.audioFile);
-    if (!audio) throw new ApiError(410, "The recording is missing on this phone");
+    let audio: Blob | null;
+    try {
+      audio = await this.deps.readAudio(note.audioFile);
+    } catch (err) {
+      throw new ApiError(422, `Couldn't read the recording on this phone: ${message(err)}`);
+    }
+    if (!audio) throw new ApiError(410, `The recording is missing on this phone (${note.audioFile})`);
     const res = await api.transcribe(note.id, audio, note.audioFile);
     await db.transaction(async (tx) => {
       await applyServerNote(tx, res.note);
