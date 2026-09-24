@@ -28,6 +28,14 @@ not Unity), plus an Express + Postgres API. The working branch is
 - **Speech-to-text:** on-device Apple Speech first (works offline), then
   OpenAI `gpt-transcribe` plus AI skier routing when online. The coach's own
   edits and manual assignments always win (`server/merge.ts`).
+- **Add skier by voice** (Add Skier page): the on-device transcript goes to
+  `POST /api/ai/parse-skier`, which returns name, age, level and notes, and the
+  skier is saved straight away. With no signal or no sign-in,
+  `client/src/lib/parse-skier.ts` parses it on the phone instead. If the name
+  or level is missing, the form is pre-filled for the coach to finish.
+- **Home layout:** quick voice notes are recorded from the big center mic in
+  the bottom nav (Skiers | mic | Settings). "Add skier" is the + in the Home
+  header.
 - No Replit (hosting or auth).
 
 ## Where things run
@@ -103,5 +111,6 @@ Work from evidence: server logs plus the exact error text shown on the phone
 
 Running on TestFlight. Offline recording, sync, cloud transcription and AI
 skier routing are verified in production. Not yet verified in production:
-AI summaries, multi-skier note splitting, signing in with your own key on a
-device, and a long offline backlog on a device.
+AI summaries, multi-skier note splitting, adding a skier by voice (AI
+path), signing in with your own key on a device, and a long offline backlog
+on a device.

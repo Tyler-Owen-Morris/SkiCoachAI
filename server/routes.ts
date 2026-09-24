@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   ERROR_CODES,
   MAX_PUSH_OPS,
+  parseSkierRequestSchema,
   pushOpSchema,
   type PullResponse,
   type PushResponse,
@@ -13,7 +14,14 @@ import {
   type TranscribeResponse,
 } from "@shared/sync";
 import { requireAuth, registerAuthRoutes, type AuthedRequest } from "./auth";
-import { assignNoteToSkiers, HttpError, summarizeSkier, toHttpError, transcribeAudio } from "./ai";
+import {
+  assignNoteToSkiers,
+  HttpError,
+  parseSkierDescription,
+  summarizeSkier,
+  toHttpError,
+  transcribeAudio,
+} from "./ai";
 import { mergeNote, mergeSkier } from "./merge";
 import { storage, toServerNote, toServerSkier, toServerSummary } from "./storage";
 import { config } from "./config";
@@ -271,6 +279,24 @@ export function registerRoutes(app: Express) {
         error: null,
       });
       res.json({ summary: toServerSummary(saved) } satisfies SummaryResponse);
+    }),
+  );
+
+  // Turns a spoken description ("Lisa is 25, intermediate, red jacket") into
+  // skier fields. Interactive, not queued: the phone falls back to an
+  // on-device parser when this can't be reached.
+  app.post(
+    "/api/ai/parse-skier",
+    requireAuth,
+    route(async (req, res) => {
+      const parsed = parseSkierRequestSchema.safeParse(req.body);
+      if (!parsed.success) throw new HttpError(400, "A transcript is required");
+      const key = openAIKeyFor(req);
+      const result = await parseSkierDescription(key, parsed.data.transcript);
+      console.log(
+        `[parse-skier] chars=${parsed.data.transcript.length} name=${!!result.name} age=${result.age !== null} level=${result.level ?? "-"} notes=${!!result.notes}`,
+      );
+      res.json(result);
     }),
   );
 

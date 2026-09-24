@@ -103,7 +103,7 @@ export default function Settings() {
       : "No key — AI transcription and summaries are paused";
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-28">
+    <div className="min-h-screen bg-neutral-50 pb-36">
       <header className="bg-white shadow-sm border-b border-neutral-200 sticky top-0 z-40 safe-top">
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-medium text-neutral-800">Settings</h1>

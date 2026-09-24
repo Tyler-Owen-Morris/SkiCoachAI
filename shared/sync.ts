@@ -103,6 +103,16 @@ export interface SummaryResponse {
   summary: ServerSummary;
 }
 
+// Fields pulled out of a spoken description of a new skier. Any field the
+// coach didn't mention is null.
+export interface ParsedSkier {
+  name: string | null;
+  age: number | null;
+  level: (typeof SKIER_LEVELS)[number] | null;
+  notes: string | null;
+}
+export const parseSkierRequestSchema = z.object({ transcript: z.string().trim().min(1).max(5000) });
+
 export type AuthMode = "passcode" | "byok";
 export interface AuthResponse {
   token: string;

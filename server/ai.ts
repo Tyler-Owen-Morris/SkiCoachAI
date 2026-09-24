@@ -1,5 +1,5 @@
 import OpenAI, { toFile } from "openai";
-import { ERROR_CODES, type SummaryContent } from "@shared/sync";
+import { ERROR_CODES, SKIER_LEVELS, type ParsedSkier, type SummaryContent } from "@shared/sync";
 import { config } from "./config";
 
 export class HttpError extends Error {
@@ -262,4 +262,39 @@ export async function summarizeSkier(
       },
     },
   );
+}
+
+export async function parseSkierDescription(apiKey: string, transcript: string): Promise<ParsedSkier> {
+  const result = await structuredCall<ParsedSkier>(
+    apiKey,
+    "new_skier",
+    [
+      "A ski coach is describing a new student out loud so the app can create their profile.",
+      "Extract: name (the student's name as spoken, properly capitalized); age (whole years, or null);",
+      "level (beginner, intermediate, advanced or expert, mapping phrases like 'first time on skis' to beginner",
+      "or 'rips black diamonds' to advanced; null if not stated);",
+      "notes (everything else useful for recognizing or coaching them, rewritten as short third-person",
+      "sentences using their name, e.g. 'Lisa wears a bright red jacket.'; null if there is nothing else).",
+      "Do not put the name, age or level in the notes. Do not invent details.",
+    ].join(" "),
+    transcript,
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["name", "age", "level", "notes"],
+      properties: {
+        name: { type: ["string", "null"] },
+        age: { type: ["integer", "null"] },
+        level: { type: ["string", "null"], enum: [...SKIER_LEVELS, null] },
+        notes: { type: ["string", "null"] },
+      },
+    },
+  );
+  const age = typeof result.age === "number" && result.age >= 1 && result.age <= 120 ? Math.round(result.age) : null;
+  return {
+    name: result.name?.trim() || null,
+    age,
+    level: result.level && (SKIER_LEVELS as readonly string[]).includes(result.level) ? result.level : null,
+    notes: result.notes?.trim() || null,
+  };
 }

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Inbox, Mountain, Search, Users } from "lucide-react";
+import { Inbox, Mountain, Search, UserPlus, Users } from "lucide-react";
 import { useLocal } from "@/app/hooks";
 import { listInboxNotes, listSkiers, unsyncedNoteIds } from "@/data/repo";
 import { Input } from "@/components/ui/input";
 import SkierCard from "@/components/skier-card";
 import BottomNavigation from "@/components/bottom-navigation";
 import LoadingOverlay from "@/components/loading-overlay";
-import VoiceCapture from "@/components/voice-capture";
 import NoteCard from "@/components/note-card";
 import SyncBadge from "@/components/sync-badge";
 
@@ -27,7 +26,7 @@ export default function Home() {
     skiers.reduce((sum, s) => sum + s.noteCount, 0) + inbox.filter((n) => !n.skierId || !activeIds.has(n.skierId)).length;
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-28">
+    <div className="min-h-screen bg-neutral-50 pb-36">
       <header className="bg-white shadow-sm border-b border-neutral-200 sticky top-0 z-40 safe-top">
         <div className="px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
@@ -36,13 +35,20 @@ export default function Home() {
             </div>
             <h1 className="text-lg font-medium text-neutral-800">Ski Coach AI</h1>
           </div>
-          <SyncBadge />
+          <div className="flex items-center gap-2">
+            <SyncBadge />
+            <button
+              onClick={() => setLocation("/add-skier")}
+              className="p-2 -mr-2 rounded-full text-primary hover:bg-neutral-100"
+              aria-label="Add skier"
+            >
+              <UserPlus size={22} />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="p-4 space-y-6">
-        <VoiceCapture skiers={skiers} />
-
         {inbox.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-center gap-2">

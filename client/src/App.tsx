@@ -23,8 +23,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/skier/:id/edit">{(params) => <AddSkier skierId={params.id} />}</Route>
       <Route path="/skier/:id" component={SkierDetail} />
-      <Route path="/add-skier" component={AddSkier} />
+      <Route path="/add-skier">{() => <AddSkier />}</Route>
       <Route path="/settings" component={Settings} />
       <Route path="/sign-in" component={Welcome} />
       <Route component={NotFound} />

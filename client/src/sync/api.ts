@@ -2,6 +2,7 @@ import {
   OPENAI_KEY_HEADER,
   type AuthResponse,
   type MeResponse,
+  type ParsedSkier,
   type PullResponse,
   type PushOp,
   type PushResponse,
@@ -117,6 +118,13 @@ export function createApi(cfg: ApiConfig, fetchImpl: typeof fetch = (...args) =>
         openaiKey: cfg.openaiKey(),
       });
     },
+    // Interactive: short timeout, the caller falls back to on-device parsing.
+    parseSkier: (transcript: string) =>
+      request<ParsedSkier>("/api/ai/parse-skier", {
+        json: { transcript },
+        timeoutMs: 20_000,
+        openaiKey: cfg.openaiKey(),
+      }),
     summary: (skierId: string, summaryId: string, requestedAt: string) =>
       request<SummaryResponse>(
         `/api/skiers/${encodeURIComponent(skierId)}/summaries/${encodeURIComponent(summaryId)}`,

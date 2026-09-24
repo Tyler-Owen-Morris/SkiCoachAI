@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, MoreVertical, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, MoreVertical, Pencil, Send, Trash2 } from "lucide-react";
 import { getServices, afterLocalWrite } from "@/app/services";
 import { useLocal, useSyncStatus } from "@/app/hooks";
 import {
@@ -105,6 +105,9 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setLocation(`/skier/${skier.id}/edit`)}>
+                <Pencil size={14} className="mr-2" /> Edit details
+              </DropdownMenuItem>
               <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDelete(true)}>
                 <Trash2 size={14} className="mr-2" /> Remove skier
               </DropdownMenuItem>
@@ -114,7 +117,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
       </header>
 
       <div className="p-4 space-y-6">
-        <VoiceCapture skiers={skiers} fixedSkier={{ id: skier.id, name: skier.name }} />
+        <VoiceCapture skier={{ id: skier.id, name: skier.name }} />
 
         <div className="bg-white rounded-xl p-4 shadow-sm space-y-2">
           <Textarea
