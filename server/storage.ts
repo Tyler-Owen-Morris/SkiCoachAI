@@ -22,6 +22,7 @@ export function toServerSkier(row: SkierRow): ServerSkier {
     level: row.level as ServerSkier["level"],
     age: row.age,
     initialNotes: row.initialNotes,
+    equipment: row.equipment as ServerSkier["equipment"],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.clientUpdatedAt.toISOString(),
     deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -35,6 +36,7 @@ export function toServerNote(row: NoteRow): ServerNote {
   return {
     id: row.id,
     skierId: row.skierId,
+    equipment: row.equipment as ServerNote["equipment"],
     content: row.content,
     deviceTranscript: row.deviceTranscript,
     cloudTranscript: row.cloudTranscript,
@@ -63,6 +65,7 @@ export function toServerSummary(row: SummaryRow): ServerSummary {
   return {
     id: row.id,
     skierId: row.skierId,
+    equipment: row.equipment as ServerSummary["equipment"],
     status: row.status as ServerSummary["status"],
     content,
     error: row.error,
@@ -125,16 +128,23 @@ export const storage = {
 
   async activeRoster(coachId: string) {
     return db
-      .select({ id: skiers.id, name: skiers.name })
+      .select({ id: skiers.id, name: skiers.name, equipment: skiers.equipment })
       .from(skiers)
       .where(and(eq(skiers.coachId, coachId), isNull(skiers.deletedAt), isNull(skiers.archivedAt)));
   },
 
-  async activeNotesForSkier(coachId: string, skierId: string) {
+  async activeNotesForSkier(coachId: string, skierId: string, equipment: string) {
     return db
       .select()
       .from(notes)
-      .where(and(eq(notes.coachId, coachId), eq(notes.skierId, skierId), isNull(notes.deletedAt)))
+      .where(
+        and(
+          eq(notes.coachId, coachId),
+          eq(notes.skierId, skierId),
+          eq(notes.equipment, equipment),
+          isNull(notes.deletedAt),
+        ),
+      )
       .orderBy(asc(notes.recordedAt));
   },
 

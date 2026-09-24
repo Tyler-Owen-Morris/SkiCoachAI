@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Cloud, CloudOff, MoreVertical, Pencil, Smartphone, Sparkles, Trash2, UserRound } from "lucide-react";
+import { ArrowLeftRight, Cloud, CloudOff, MoreVertical, Pencil, Smartphone, Sparkles, Trash2, UserRound } from "lucide-react";
 import { getServices, afterLocalWrite } from "@/app/services";
-import { assignNote, deleteNote, editNoteContent, type Note, type Skier } from "@/data/repo";
+import { assignNote, deleteNote, editNoteContent, setNoteEquipment, type Note, type Skier } from "@/data/repo";
 import { deleteAudio } from "@/voice/recorder";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +42,13 @@ export default function NoteCard({ note, skiers, showSkier, waiting }: NoteCardP
     await editNoteContent(getServices().db, note.id, draft.trim());
     afterLocalWrite();
     setEditing(false);
+  }
+
+  async function switchEquipment() {
+    const next = note.equipment === "snowboard" ? "ski" : "snowboard";
+    await setNoteEquipment(getServices().db, note.id, next);
+    afterLocalWrite();
+    toast({ title: `Moved to ${next === "snowboard" ? "snowboard" : "ski"} notes` });
   }
 
   async function reassign(skierId: string) {
@@ -97,6 +104,12 @@ export default function NoteCard({ note, skiers, showSkier, waiting }: NoteCardP
             <DropdownMenuItem onClick={() => setAssigning(true)}>
               <UserRound size={14} className="mr-2" /> Assign to skier
             </DropdownMenuItem>
+            {note.skierId && (
+              <DropdownMenuItem onClick={switchEquipment}>
+                <ArrowLeftRight size={14} className="mr-2" /> Move to{" "}
+                {note.equipment === "snowboard" ? "ski" : "snowboard"} notes
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="text-red-600" onClick={remove}>
               <Trash2 size={14} className="mr-2" /> Delete
             </DropdownMenuItem>

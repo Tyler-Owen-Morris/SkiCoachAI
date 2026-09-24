@@ -187,12 +187,19 @@ export function registerRoutes(app: Express) {
       if (needsRouting && !current.deletedAt && current.content.trim()) {
         const { assignments, confident } = await assignNoteToSkiers(keyFor(), current.content, roster);
         const status = confident ? "ai" : "ai-uncertain";
+        // A note takes the equipment the skier it's filed under is currently on.
+        const equipmentOf = (skierId: string) => roster.find((s) => s.id === skierId)?.equipment ?? "ski";
         if (assignments.length === 1) {
-          current = await storage.patchNote(current.id, { skierId: assignments[0].skierId, assignmentStatus: status });
+          current = await storage.patchNote(current.id, {
+            skierId: assignments[0].skierId,
+            equipment: equipmentOf(assignments[0].skierId),
+            assignmentStatus: status,
+          });
         } else if (assignments.length > 1) {
           const [first, ...rest] = assignments;
           current = await storage.patchNote(current.id, {
             skierId: first.skierId,
+            equipment: equipmentOf(first.skierId),
             assignmentStatus: status,
             ...(current.userEdited ? {} : { content: first.excerpt }),
           });
@@ -201,6 +208,7 @@ export function registerRoutes(app: Express) {
             const row = await storage.writeNote(req.coachId, {
               id: randomUUID(),
               skierId: extra.skierId,
+              equipment: equipmentOf(extra.skierId),
               content: extra.excerpt,
               deviceTranscript: null,
               cloudTranscript: null,
@@ -252,11 +260,15 @@ export function registerRoutes(app: Express) {
         typeof req.body?.requestedAt === "string" && Number.isFinite(Date.parse(req.body.requestedAt))
           ? new Date(req.body.requestedAt)
           : new Date();
-      const noteRows = await storage.activeNotesForSkier(req.coachId, skier.id);
+      // Ski and snowboard notes are summarized separately. Older app builds
+      // don't send equipment; they only ever had ski notes.
+      const equipment = req.body?.equipment === "snowboard" ? "snowboard" : "ski";
+      const noteRows = await storage.activeNotesForSkier(req.coachId, skier.id, equipment);
       const base = {
         id: req.params.id,
         coachId: req.coachId,
         skierId: skier.id,
+        equipment,
         requestedAt,
         noteCount: noteRows.length,
       };
@@ -266,13 +278,13 @@ export function registerRoutes(app: Express) {
           ...base,
           status: "error",
           content: null,
-          error: "No notes to summarize yet",
+          error: `No ${equipment === "snowboard" ? "snowboard" : "ski"} notes to summarize yet`,
         });
         return res.json({ summary: toServerSummary(saved) } satisfies SummaryResponse);
       }
 
       const key = openAIKeyFor(req);
-      const content = await summarizeSkier(key, skier, noteRows);
+      const content = await summarizeSkier(key, skier, equipment, noteRows);
       const saved = await storage.writeSummary({
         ...base,
         status: "ready",

@@ -1,5 +1,6 @@
 import type {
   AssignmentStatus,
+  Equipment,
   NotePayload,
   ServerNote,
   ServerSkier,
@@ -20,6 +21,8 @@ export interface Skier {
   level: SkierLevel;
   age: number | null;
   initialNotes: string | null;
+  // What they're currently riding; new notes default to this.
+  equipment: Equipment;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -44,6 +47,8 @@ export interface SkierPhoto {
 export interface Note {
   id: string;
   skierId: string | null;
+  // Ski and snowboard notes (and summaries) are kept apart.
+  equipment: Equipment;
   content: string;
   deviceTranscript: string | null;
   cloudTranscript: string | null;
@@ -64,6 +69,7 @@ export type LocalSummaryStatus = "queued" | "pending" | "ready" | "error";
 export interface Summary {
   id: string;
   skierId: string;
+  equipment: Equipment;
   status: LocalSummaryStatus;
   content: SummaryContent | null;
   error: string | null;
@@ -80,6 +86,7 @@ const skierFromRow = (r: Row): Skier => ({
   level: r.level,
   age: r.age ?? null,
   initialNotes: r.initial_notes ?? null,
+  equipment: r.equipment ?? "ski",
   createdAt: r.created_at,
   updatedAt: r.updated_at,
   deletedAt: r.deleted_at ?? null,
@@ -90,6 +97,7 @@ const skierFromRow = (r: Row): Skier => ({
 const noteFromRow = (r: Row): Note => ({
   id: r.id,
   skierId: r.skier_id ?? null,
+  equipment: r.equipment ?? "ski",
   content: r.content,
   deviceTranscript: r.device_transcript ?? null,
   cloudTranscript: r.cloud_transcript ?? null,
@@ -118,6 +126,7 @@ const summaryFromRow = (r: Row): Summary => {
   return {
     id: r.id,
     skierId: r.skier_id,
+    equipment: r.equipment ?? "ski",
     status: r.status,
     content,
     error: r.error ?? null,
@@ -198,12 +207,27 @@ export async function getNote(db: SqlExecutor, id: string): Promise<Note | null>
   return row ? noteFromRow(row) : null;
 }
 
-export async function listNotesForSkier(db: SqlExecutor, skierId: string): Promise<Note[]> {
-  const rows = await db.all(
-    "SELECT * FROM notes WHERE skier_id = ? AND deleted_at IS NULL ORDER BY recorded_at DESC",
+// All of a skier's notes, or only their ski / snowboard ones.
+export async function listNotesForSkier(db: SqlExecutor, skierId: string, equipment?: Equipment): Promise<Note[]> {
+  const rows = equipment
+    ? await db.all(
+        "SELECT * FROM notes WHERE skier_id = ? AND equipment = ? AND deleted_at IS NULL ORDER BY recorded_at DESC",
+        [skierId, equipment],
+      )
+    : await db.all("SELECT * FROM notes WHERE skier_id = ? AND deleted_at IS NULL ORDER BY recorded_at DESC", [
+        skierId,
+      ]);
+  return rows.map(noteFromRow);
+}
+
+export async function noteCountsByEquipment(db: SqlExecutor, skierId: string): Promise<Record<Equipment, number>> {
+  const rows = await db.all<{ equipment: Equipment; n: number }>(
+    "SELECT equipment, COUNT(*) AS n FROM notes WHERE skier_id = ? AND deleted_at IS NULL GROUP BY equipment",
     [skierId],
   );
-  return rows.map(noteFromRow);
+  const counts: Record<Equipment, number> = { ski: 0, snowboard: 0 };
+  for (const r of rows) counts[r.equipment] = Number(r.n);
+  return counts;
 }
 
 // Notes that need the coach: no skier yet, the AI wasn't sure, or the skier
@@ -219,18 +243,22 @@ export async function listInboxNotes(db: SqlExecutor): Promise<Note[]> {
   return rows.map(noteFromRow);
 }
 
-export async function latestSummary(db: SqlExecutor, skierId: string): Promise<Summary | null> {
+export async function latestSummary(db: SqlExecutor, skierId: string, equipment: Equipment): Promise<Summary | null> {
   const [row] = await db.all(
-    "SELECT * FROM summaries WHERE skier_id = ? ORDER BY requested_at DESC LIMIT 1",
-    [skierId],
+    "SELECT * FROM summaries WHERE skier_id = ? AND equipment = ? ORDER BY requested_at DESC LIMIT 1",
+    [skierId, equipment],
   );
   return row ? summaryFromRow(row) : null;
 }
 
-export async function latestReadySummary(db: SqlExecutor, skierId: string): Promise<Summary | null> {
+export async function latestReadySummary(
+  db: SqlExecutor,
+  skierId: string,
+  equipment: Equipment,
+): Promise<Summary | null> {
   const [row] = await db.all(
-    "SELECT * FROM summaries WHERE skier_id = ? AND status = 'ready' ORDER BY requested_at DESC LIMIT 1",
-    [skierId],
+    "SELECT * FROM summaries WHERE skier_id = ? AND equipment = ? AND status = 'ready' ORDER BY requested_at DESC LIMIT 1",
+    [skierId, equipment],
   );
   return row ? summaryFromRow(row) : null;
 }
@@ -269,8 +297,8 @@ export async function setKv(db: SqlExecutor, key: string, value: string | null) 
 async function writeSkierRow(tx: SqlExecutor, s: Skier) {
   await tx.run(
     `INSERT OR REPLACE INTO skiers (id, name, level, age, initial_notes, created_at, updated_at, deleted_at,
-       archived_at, photo_updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       archived_at, photo_updated_at, equipment)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       s.id,
       s.name,
@@ -282,6 +310,7 @@ async function writeSkierRow(tx: SqlExecutor, s: Skier) {
       s.deletedAt,
       s.archivedAt,
       s.photoUpdatedAt,
+      s.equipment,
     ],
   );
 }
@@ -299,8 +328,8 @@ async function writeNoteRow(tx: SqlExecutor, n: Note) {
   await tx.run(
     `INSERT OR REPLACE INTO notes (id, skier_id, content, device_transcript, cloud_transcript, transcript_source,
        assignment_status, user_edited, has_audio, audio_file, audio_mime, audio_duration_ms, recorded_at,
-       created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       created_at, updated_at, deleted_at, equipment)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       n.id,
       n.skierId,
@@ -318,15 +347,27 @@ async function writeNoteRow(tx: SqlExecutor, n: Note) {
       n.createdAt,
       n.updatedAt,
       n.deletedAt,
+      n.equipment,
     ],
   );
 }
 
 async function writeSummaryRow(tx: SqlExecutor, s: Summary) {
   await tx.run(
-    `INSERT OR REPLACE INTO summaries (id, skier_id, status, content, error, note_count, requested_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [s.id, s.skierId, s.status, s.content ? JSON.stringify(s.content) : null, s.error, s.noteCount, s.requestedAt, s.updatedAt],
+    `INSERT OR REPLACE INTO summaries (id, skier_id, status, content, error, note_count, requested_at, updated_at,
+       equipment)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      s.id,
+      s.skierId,
+      s.status,
+      s.content ? JSON.stringify(s.content) : null,
+      s.error,
+      s.noteCount,
+      s.requestedAt,
+      s.updatedAt,
+      s.equipment,
+    ],
   );
 }
 
@@ -335,6 +376,7 @@ export interface SkierInput {
   level: SkierLevel;
   age: number | null;
   initialNotes: string | null;
+  equipment: Equipment;
 }
 
 export async function createSkier(
@@ -413,6 +455,7 @@ export async function deleteSkier(db: SqlDb, id: string) {
 
 export interface VoiceNoteInput {
   skierId: string | null;
+  equipment: Equipment;
   assignmentStatus: AssignmentStatus;
   transcript: string;
   audioFile: string | null;
@@ -426,6 +469,7 @@ export async function saveVoiceNote(db: SqlDb, input: VoiceNoteInput): Promise<N
   const note: Note = {
     id: uuid(),
     skierId: input.skierId,
+    equipment: input.equipment,
     content: input.transcript,
     deviceTranscript: input.transcript || null,
     cloudTranscript: null,
@@ -449,11 +493,17 @@ export async function saveVoiceNote(db: SqlDb, input: VoiceNoteInput): Promise<N
   return note;
 }
 
-export async function addTypedNote(db: SqlDb, skierId: string, content: string): Promise<Note> {
+export async function addTypedNote(
+  db: SqlDb,
+  skierId: string,
+  content: string,
+  equipment: Equipment = "ski",
+): Promise<Note> {
   const now = stamp();
   const note: Note = {
     id: uuid(),
     skierId,
+    equipment,
     content,
     deviceTranscript: null,
     cloudTranscript: null,
@@ -485,11 +535,31 @@ export async function editNoteContent(db: SqlDb, id: string, content: string) {
   });
 }
 
+// Filing a note under a skier also files it under the equipment they're on.
 export async function assignNote(db: SqlDb, id: string, skierId: string) {
   await db.transaction(async (tx) => {
     const note = await getNote(tx, id);
     if (!note) throw new Error("Note not found");
-    await writeNoteRow(tx, { ...note, skierId, assignmentStatus: "manual", updatedAt: stamp() });
+    const skier = await getSkier(tx, skierId);
+    await writeNoteRow(tx, {
+      ...note,
+      skierId,
+      equipment: skier?.equipment ?? note.equipment,
+      assignmentStatus: "manual",
+      updatedAt: stamp(),
+    });
+    await enqueue(tx, "note", id);
+  });
+}
+
+// Moves a note between a skier's ski and snowboard notes.
+export async function setNoteEquipment(db: SqlDb, id: string, equipment: Equipment) {
+  await db.transaction(async (tx) => {
+    const note = await getNote(tx, id);
+    if (!note) throw new Error("Note not found");
+    // Counts as the coach's choice, so a late AI result can't move it back.
+    const assignmentStatus = note.skierId ? "manual" : note.assignmentStatus;
+    await writeNoteRow(tx, { ...note, equipment, assignmentStatus, updatedAt: stamp() });
     await enqueue(tx, "note", id);
   });
 }
@@ -507,11 +577,12 @@ export async function deleteNote(db: SqlDb, id: string): Promise<string | null> 
   });
 }
 
-export async function requestSummary(db: SqlDb, skierId: string): Promise<Summary> {
+export async function requestSummary(db: SqlDb, skierId: string, equipment: Equipment): Promise<Summary> {
   const now = stamp();
   const summary: Summary = {
     id: uuid(),
     skierId,
+    equipment,
     status: "queued",
     content: null,
     error: null,
@@ -539,6 +610,7 @@ export function skierPayload(s: Skier): SkierPayload {
     updatedAt: s.updatedAt,
     deletedAt: s.deletedAt,
     archivedAt: s.archivedAt,
+    equipment: s.equipment,
   };
 }
 
@@ -546,6 +618,7 @@ export function notePayload(n: Note): NotePayload {
   return {
     id: n.id,
     skierId: n.skierId,
+    equipment: n.equipment,
     content: n.content,
     deviceTranscript: n.deviceTranscript,
     transcriptSource: n.transcriptSource,
@@ -570,6 +643,7 @@ export async function applyServerSkier(tx: SqlExecutor, s: ServerSkier) {
     level: s.level,
     age: s.age,
     initialNotes: s.initialNotes,
+    equipment: s.equipment ?? "ski",
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
     deletedAt: s.deletedAt,
@@ -591,6 +665,7 @@ export async function applyServerNote(tx: SqlExecutor, n: ServerNote) {
   await writeNoteRow(tx, {
     id: n.id,
     skierId: n.skierId,
+    equipment: n.equipment ?? "ski",
     content: n.content,
     deviceTranscript: n.deviceTranscript,
     cloudTranscript: n.cloudTranscript,
@@ -613,6 +688,7 @@ export async function applyServerSummary(tx: SqlExecutor, s: ServerSummary) {
   await writeSummaryRow(tx, {
     id: s.id,
     skierId: s.skierId,
+    equipment: s.equipment ?? "ski",
     status: s.status,
     content: s.content,
     error: s.error,

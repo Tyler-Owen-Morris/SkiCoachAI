@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Archive, ChevronDown, ChevronRight, Inbox, Mountain, Search, UserPlus, Users } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, CircleX, Inbox, Mountain, Search, UserPlus, Users } from "lucide-react";
 import { useLocal } from "@/app/hooks";
 import { afterLocalWrite, getServices } from "@/app/services";
 import { listArchivedSkiers, listInboxNotes, listSkiers, setSkierArchived, unsyncedNoteIds } from "@/data/repo";
@@ -89,12 +89,25 @@ export default function Home() {
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
             <Input
-              type="search"
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              autoCorrect="off"
               placeholder="Search skiers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white rounded-xl border border-neutral-200"
+              className="w-full pl-12 pr-12 py-3 bg-white rounded-xl border border-neutral-200"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-red-500"
+                aria-label="Clear search"
+              >
+                <CircleX size={20} />
+              </button>
+            )}
           </div>
         )}
 

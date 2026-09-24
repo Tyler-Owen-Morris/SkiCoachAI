@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Archive, ArchiveRestore, ArrowLeft, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import type { Equipment } from "@shared/sync";
 import { getServices, afterLocalWrite } from "@/app/services";
 import { useLocal, useSyncStatus } from "@/app/hooks";
 import {
@@ -11,6 +12,7 @@ import {
   latestSummary,
   listNotesForSkier,
   listSkiers,
+  noteCountsByEquipment,
   requestSummary,
   setSkierArchived,
   setSkierPhoto,
@@ -18,6 +20,7 @@ import {
 } from "@/data/repo";
 import type { SkierPhotoData } from "@/lib/photo";
 import SkierPhotoCircle from "@/components/skier-photo-circle";
+import EquipmentToggle from "@/components/equipment-toggle";
 import { RecordBar } from "@/components/bottom-navigation";
 import LoadingOverlay from "@/components/loading-overlay";
 import NoteCard from "@/components/note-card";
@@ -37,16 +40,25 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Everything a coach needs to recognize a skier is at the top (photo, name,
-// notes about them), then the AI summary, then every note. The mic pinned at
-// the bottom files notes under this skier from anywhere on the page.
+// notes about them), then the AI summary, then every note. Ski and snowboard
+// notes and summaries are kept apart; the switch picks which set is shown and
+// which set the pinned mic records into.
 export default function SkierDetail({ params }: { params: { id: string } }) {
   const [, setLocation] = useLocation();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // null = follow what they currently ride.
+  const [viewed, setViewed] = useState<Equipment | null>(null);
   const status = useSyncStatus();
   const { data: skier, isLoading } = useLocal(["skier", params.id], (db) => getSkier(db, params.id));
-  const { data: notes = [] } = useLocal(["notes", params.id], (db) => listNotesForSkier(db, params.id));
-  const { data: summary = null } = useLocal(["summary", params.id], (db) => latestSummary(db, params.id));
-  const { data: ready = null } = useLocal(["summary-ready", params.id], (db) => latestReadySummary(db, params.id));
+  const tab: Equipment = viewed ?? skier?.equipment ?? "ski";
+  const { data: notes = [] } = useLocal(["notes", params.id, tab], (db) => listNotesForSkier(db, params.id, tab));
+  const { data: counts = { ski: 0, snowboard: 0 } } = useLocal(["note-counts", params.id], (db) =>
+    noteCountsByEquipment(db, params.id),
+  );
+  const { data: summary = null } = useLocal(["summary", params.id, tab], (db) => latestSummary(db, params.id, tab));
+  const { data: ready = null } = useLocal(["summary-ready", params.id, tab], (db) =>
+    latestReadySummary(db, params.id, tab),
+  );
   const { data: skiers = [] } = useLocal(["skiers"], listSkiers);
   const { data: unsynced } = useLocal(["unsynced"], unsyncedNoteIds);
   const { data: photo = null } = useLocal(["photo", params.id], (db) => getSkierPhoto(db, params.id));
@@ -69,7 +81,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
   const firstName = skier.name.split(" ")[0];
 
   async function generateSummary() {
-    await requestSummary(getServices().db, params.id);
+    await requestSummary(getServices().db, params.id, tab);
     afterLocalWrite();
   }
 
@@ -158,7 +170,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
           />
           <h2 className="mt-3 text-xl font-semibold text-neutral-800">{skier.name}</h2>
           <p className="text-sm text-neutral-600 capitalize">
-            {skier.level}
+            {skier.level} {skier.equipment === "snowboard" ? "snowboarder" : "skier"}
             {skier.age ? ` · age ${skier.age}` : ""}
           </p>
           {skier.initialNotes ? (
@@ -173,6 +185,8 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
           )}
         </section>
 
+        <EquipmentToggle value={tab} onChange={setViewed} counts={counts} />
+
         <SummaryCard
           summary={summary}
           ready={ready}
@@ -184,11 +198,15 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
         />
 
         <section className="space-y-3">
-          <h3 className="text-lg font-medium text-neutral-800">Notes ({notes.length})</h3>
+          <h3 className="text-lg font-medium text-neutral-800">
+            {tab === "snowboard" ? "Snowboard" : "Ski"} notes ({notes.length})
+          </h3>
           {notes.length === 0 ? (
             <div className="bg-white rounded-xl p-8 shadow-sm text-center">
               <h4 className="text-lg font-medium text-neutral-800 mb-2">No notes yet</h4>
-              <p className="text-neutral-600">Tap the mic below to record one about {firstName}.</p>
+              <p className="text-neutral-600">
+                Tap the mic below to record a {tab === "snowboard" ? "snowboard" : "ski"} note about {firstName}.
+              </p>
             </div>
           ) : (
             notes.map((note) => (
@@ -198,7 +216,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
         </section>
       </div>
 
-      <RecordBar skier={{ id: skier.id, name: skier.name }} />
+      <RecordBar skier={{ id: skier.id, name: skier.name, equipment: skier.equipment }} equipment={tab} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

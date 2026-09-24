@@ -27,7 +27,8 @@ export default function SkierCard({ skier, onClick }: SkierCardProps) {
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-neutral-800 truncate">{skier.name}</h3>
           <p className="text-sm text-neutral-600 capitalize">
-            {skier.level} • {skier.noteCount} {skier.noteCount === 1 ? "note" : "notes"}
+            {skier.level} {skier.equipment === "snowboard" ? "snowboarder" : "skier"} • {skier.noteCount}{" "}
+            {skier.noteCount === 1 ? "note" : "notes"}
           </p>
           <div className="flex items-center space-x-2 mt-1">
             <span className={`inline-block w-2 h-2 rounded-full ${LEVEL_COLORS[skier.level] ?? "bg-neutral-400"}`}></span>

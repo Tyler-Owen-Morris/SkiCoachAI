@@ -14,7 +14,7 @@ import {
 import { guessSkier } from "@/lib/name-match";
 import { FakeServer, makeEngine, memoryDb } from "./test-helpers";
 
-const lisa = { name: "Lisa Park", level: "intermediate" as const, age: 25, initialNotes: null };
+const lisa = { name: "Lisa Park", level: "intermediate" as const, age: 25, initialNotes: null, equipment: "ski" as const };
 const photo = { photo: "data:image/jpeg;base64,AAAA", thumb: "data:image/jpeg;base64,BBBB" };
 
 describe("archiving skiers", () => {
@@ -24,6 +24,7 @@ describe("archiving skiers", () => {
     const newLisa = await createSkier(db, { ...lisa, name: "Lisa" });
     await saveVoiceNote(db, {
       skierId: oldLisa.id,
+      equipment: "ski",
       assignmentStatus: "manual",
       transcript: "Lisa carved well",
       audioFile: null,

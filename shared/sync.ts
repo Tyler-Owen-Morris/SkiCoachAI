@@ -3,6 +3,8 @@ import { z } from "zod";
 // Wire protocol shared by the phone and the server. Timestamps are ISO strings.
 
 export const SKIER_LEVELS = ["beginner", "intermediate", "advanced", "expert"] as const;
+export const EQUIPMENT = ["ski", "snowboard"] as const;
+export type Equipment = (typeof EQUIPMENT)[number];
 export const TRANSCRIPT_SOURCES = ["device", "cloud", "typed"] as const;
 export const ASSIGNMENT_STATUSES = ["manual", "local-guess", "ai", "ai-uncertain", "unassigned"] as const;
 
@@ -23,12 +25,16 @@ export const skierPayloadSchema = z.object({
   deletedAt: isoDate.nullable(),
   // Optional so app builds from before archiving still sync.
   archivedAt: isoDate.nullable().optional(),
+  // Optional so app builds from before ski/snowboard still sync.
+  equipment: z.enum(EQUIPMENT).optional(),
 });
 export type SkierPayload = z.infer<typeof skierPayloadSchema>;
 
 export const notePayloadSchema = z.object({
   id,
   skierId: id.nullable(),
+  // Optional so app builds from before ski/snowboard still sync.
+  equipment: z.enum(EQUIPMENT).optional(),
   content: z.string().max(50_000),
   deviceTranscript: z.string().max(50_000).nullable(),
   transcriptSource: z.enum(TRANSCRIPT_SOURCES),
@@ -65,6 +71,7 @@ export interface PushResponse {
 // Rows as the server sends them back (pull, transcribe, summary responses).
 export interface ServerSkier extends SkierPayload {
   archivedAt: string | null;
+  equipment: Equipment;
   // When the server's copy of the photo last changed; null = never had one.
   photoUpdatedAt: string | null;
   serverUpdatedAt: string;
@@ -83,6 +90,7 @@ export const skierPhotoPayloadSchema = z.object({
 });
 export type SkierPhotoPayload = z.infer<typeof skierPhotoPayloadSchema>;
 export interface ServerNote extends NotePayload {
+  equipment: Equipment;
   cloudTranscript: string | null;
   serverUpdatedAt: string;
 }
@@ -96,6 +104,7 @@ export interface SummaryContent {
 export interface ServerSummary {
   id: string;
   skierId: string;
+  equipment: Equipment;
   status: "pending" | "ready" | "error";
   content: SummaryContent | null;
   error: string | null;
@@ -127,6 +136,7 @@ export interface ParsedSkier {
   name: string | null;
   age: number | null;
   level: (typeof SKIER_LEVELS)[number] | null;
+  equipment: Equipment | null;
   notes: string | null;
 }
 export const parseSkierRequestSchema = z.object({ transcript: z.string().trim().min(1).max(5000) });

@@ -432,7 +432,7 @@ export class SyncEngine {
     await db.transaction((tx) => setSummaryStatus(tx, summary.id, "pending", null));
     this.deps.onDataChanged();
     try {
-      const res = await api.summary(summary.skierId, summary.id, summary.requestedAt);
+      const res = await api.summary(summary.skierId, summary.id, summary.requestedAt, summary.equipment);
       await db.transaction((tx) => applyServerSummary(tx, res.summary));
     } catch (err) {
       const kind = failureKind(err);

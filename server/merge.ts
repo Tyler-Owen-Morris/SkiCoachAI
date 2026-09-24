@@ -18,6 +18,8 @@ export function mergeSkier(existing: SkierRow | undefined, incoming: SkierPayloa
     level: incoming.level,
     age: incoming.age,
     initialNotes: incoming.initialNotes,
+    // Older app builds don't send equipment; keep whatever the server has.
+    equipment: incoming.equipment ?? existing?.equipment ?? "ski",
     createdAt: existing?.createdAt ?? new Date(incoming.createdAt),
     clientUpdatedAt: incomingAt,
     deletedAt: incoming.deletedAt ? new Date(incoming.deletedAt) : null,
@@ -41,6 +43,7 @@ export function mergeNote(existing: NoteRow | undefined, incoming: NotePayload):
   const write: NoteWrite = {
     id: incoming.id,
     skierId: incoming.skierId,
+    equipment: incoming.equipment ?? existing?.equipment ?? "ski",
     content: incoming.content,
     deviceTranscript: incoming.deviceTranscript,
     cloudTranscript: existing?.cloudTranscript ?? null,
@@ -73,6 +76,8 @@ export function mergeNote(existing: NoteRow | undefined, incoming: NotePayload):
   if (AI_ASSIGNED.has(existing.assignmentStatus) && WEAK_ASSIGNMENT.has(incoming.assignmentStatus)) {
     write.skierId = existing.skierId;
     write.assignmentStatus = existing.assignmentStatus;
+    // Equipment follows the assignment (it comes from the assigned skier).
+    write.equipment = existing.equipment;
   }
 
   return write;

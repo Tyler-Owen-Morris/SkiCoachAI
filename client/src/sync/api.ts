@@ -1,6 +1,7 @@
 import {
   OPENAI_KEY_HEADER,
   type AuthResponse,
+  type Equipment,
   type MeResponse,
   type ParsedSkier,
   type PullResponse,
@@ -130,10 +131,10 @@ export function createApi(cfg: ApiConfig, fetchImpl: typeof fetch = (...args) =>
         timeoutMs: 20_000,
         openaiKey: cfg.openaiKey(),
       }),
-    summary: (skierId: string, summaryId: string, requestedAt: string) =>
+    summary: (skierId: string, summaryId: string, requestedAt: string, equipment: Equipment) =>
       request<SummaryResponse>(
         `/api/skiers/${encodeURIComponent(skierId)}/summaries/${encodeURIComponent(summaryId)}`,
-        { json: { requestedAt }, timeoutMs: AI_TIMEOUT_MS, openaiKey: cfg.openaiKey() },
+        { json: { requestedAt, equipment }, timeoutMs: AI_TIMEOUT_MS, openaiKey: cfg.openaiKey() },
       ),
   };
 }

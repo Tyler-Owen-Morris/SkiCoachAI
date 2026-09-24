@@ -18,11 +18,12 @@ import {
 import { backoffMs, SyncEngine } from "./engine";
 import { FakeServer, makeEngine, memoryDb } from "./test-helpers";
 
-const skierInput = { name: "Jake Moss", level: "intermediate" as const, age: 12, initialNotes: null };
+const skierInput = { name: "Jake Moss", level: "intermediate" as const, age: 12, initialNotes: null, equipment: "ski" as const };
 
 function voiceNote(skierId: string | null, transcript = "jake nice angulation") {
   return {
     skierId,
+    equipment: "ski" as const,
     assignmentStatus: skierId ? ("local-guess" as const) : ("unassigned" as const),
     transcript,
     audioFile: "rec.m4a",
@@ -184,24 +185,24 @@ describe("sync engine", () => {
     const { engine, clock } = makeEngine(db, server);
     const skier = await createSkier(db, skierInput);
     await addTypedNote(db, skier.id, "good edging");
-    const summary = await requestSummary(db, skier.id);
+    const summary = await requestSummary(db, skier.id, "ski");
 
     // Summary calls fail with a key problem until the key is fixed.
     const realSummary = server.api.summary;
     server.api.summary = async () => {
       server.failures = [424];
-      return realSummary(skier.id, summary.id, summary.requestedAt);
+      return realSummary(skier.id, summary.id, summary.requestedAt, "ski");
     };
     await engine.requestSync();
     expect(server.skiers.size).toBe(1);
     expect(engine.getStatus().aiKeyProblem).toBeTruthy();
-    expect((await latestSummary(db, skier.id))?.status).toBe("queued");
+    expect((await latestSummary(db, skier.id, "ski"))?.status).toBe("queued");
     expect((await outboxCounts(db)).aiPending).toBe(1);
 
     server.api.summary = realSummary;
     clock.now += 60_000;
     await engine.onKeyChanged();
-    const done = await latestSummary(db, skier.id);
+    const done = await latestSummary(db, skier.id, "ski");
     expect(done?.status).toBe("ready");
     expect(done?.content?.nextFocus).toBe("edging");
     expect(engine.getStatus().aiKeyProblem).toBeNull();

@@ -59,6 +59,7 @@ export class FakeServer {
       level: r.level as ServerSkier["level"],
       age: r.age,
       initialNotes: r.initialNotes,
+      equipment: r.equipment as ServerSkier["equipment"],
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.clientUpdatedAt.toISOString(),
       deletedAt: r.deletedAt?.toISOString() ?? null,
@@ -72,6 +73,7 @@ export class FakeServer {
     return {
       id: r.id,
       skierId: r.skierId,
+      equipment: r.equipment as ServerNote["equipment"],
       content: r.content,
       deviceTranscript: r.deviceTranscript,
       cloudTranscript: r.cloudTranscript,
@@ -165,16 +167,22 @@ export class FakeServer {
       if (!photo) throw new ApiError(404, "No such skier");
       return photo;
     },
-    summary: async (skierId: string, id: string, requestedAt: string): Promise<SummaryResponse> => {
+    summary: async (
+      skierId: string,
+      id: string,
+      requestedAt: string,
+      equipment: ServerSummary["equipment"],
+    ): Promise<SummaryResponse> => {
       this.gate();
       if (!this.skiers.has(skierId)) throw new ApiError(409, "Skier not synced yet");
       const summary: ServerSummary = {
         id,
         skierId,
+        equipment,
         status: "ready",
         content: { overview: "Good progress", strengths: ["balance"], areasToImprove: ["edging"], drills: [], nextFocus: "edging" },
         error: null,
-        noteCount: [...this.notes.values()].filter((n) => n.skierId === skierId).length,
+        noteCount: [...this.notes.values()].filter((n) => n.skierId === skierId && n.equipment === equipment).length,
         requestedAt,
         serverUpdatedAt: this.stampServer().toISOString(),
       };

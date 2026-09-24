@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { SKIER_LEVELS, type ParsedSkier } from "@shared/sync";
+import { EQUIPMENT, SKIER_LEVELS, type ParsedSkier } from "@shared/sync";
 import { getServices, afterLocalWrite } from "@/app/services";
 import { useLocal } from "@/app/hooks";
 import { createSkier, getSkier, updateSkier } from "@/data/repo";
@@ -21,16 +21,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
+import EquipmentToggle from "@/components/equipment-toggle";
 
 const skierFormSchema = z.object({
   name: z.string().trim().min(1, "Enter a name").max(200),
   level: z.enum(SKIER_LEVELS, { errorMap: () => ({ message: "Pick a level" }) }),
   age: z.number().int().min(1).max(120).optional(),
   initialNotes: z.string().max(10_000).optional(),
+  equipment: z.enum(EQUIPMENT),
 });
 type SkierForm = z.infer<typeof skierFormSchema>;
 
-const VOICE_HINTS = [...SKIER_LEVELS, "years old", "jacket", "helmet", "pants", "goggles", "snowboard"];
+const VOICE_HINTS = [...SKIER_LEVELS, "years old", "jacket", "helmet", "pants", "goggles", "snowboard", "snowboarder", "skier"];
 
 const inputClass =
   "w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent";
@@ -69,6 +71,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
       level: undefined,
       age: undefined,
       initialNotes: "",
+      equipment: "ski",
     },
   });
 
@@ -79,6 +82,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
         level: existing.level,
         age: existing.age ?? undefined,
         initialNotes: existing.initialNotes ?? "",
+        equipment: existing.equipment,
       });
     }
   }, [existing, form]);
@@ -107,6 +111,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
             level: parsed.level,
             age: parsed.age,
             initialNotes: parsed.notes,
+            equipment: parsed.equipment ?? form.getValues("equipment"),
           },
           photo,
         );
@@ -115,6 +120,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
           title: `${skier.name} added`,
           description: [
             parsed.level,
+            (parsed.equipment ?? form.getValues("equipment")) === "snowboard" ? "snowboard" : "skis",
             parsed.age ? `age ${parsed.age}` : null,
             byAi ? null : "understood on this phone, check the details",
           ]
@@ -130,6 +136,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
         level: parsed.level ?? undefined,
         age: parsed.age ?? undefined,
         initialNotes: parsed.notes ?? "",
+        equipment: parsed.equipment ?? form.getValues("equipment"),
       });
       const missing = [!parsed.name && "name", !parsed.level && "skill level"].filter(Boolean).join(" and ");
       toast({ title: "Almost there", description: `Couldn't tell the ${missing}. Fill it in and tap Add Skier.` });
@@ -143,6 +150,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
       level: data.level,
       age: data.age ?? null,
       initialNotes: data.initialNotes?.trim() || null,
+      equipment: data.equipment,
     };
     if (skierId) {
       await updateSkier(getServices().db, skierId, input);
@@ -241,6 +249,18 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
                     <FormControl>
                       <Input placeholder="Enter skier's full name" {...field} className={inputClass} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="equipment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block text-sm font-medium text-neutral-700">Rides</FormLabel>
+                    <EquipmentToggle value={field.value} onChange={field.onChange} />
                     <FormMessage />
                   </FormItem>
                 )}

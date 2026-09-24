@@ -19,7 +19,12 @@ const LEVEL_WORDS: [RegExp, ParsedSkier["level"]][] = [
   [/\b(beginner|novice|never[- ]ever|first[- ]tim(?:e|er)|first time on skis)\b/i, "beginner"],
 ];
 
-const AGE = /\b(\d{1,3})\s*(?:-|\s)?\s*(?:years?|yrs?|yo)\b(?:\s*-?\s*old)?|\bage(?:d)?\s*(?:is\s*)?(\d{1,3})\b/i;
+const SNOWBOARD = /\b(snow ?board(?:er|ing)?|boarder|on a board|rides? a board)\b/i;
+const SKI_WORD = /\b(skis|skier|skiing|on skis)\b/i;
+
+// "25 years old", "aged 9", or a bare "is 14," / "she's 7."
+const AGE =
+  /\b(\d{1,3})\s*(?:-|\s)?\s*(?:years?|yrs?|yo)\b(?:\s*-?\s*old)?|\bage(?:d)?\s*(?:is\s*)?(\d{1,3})\b|\b(?:is|who's|who is|she's|he's)\s+(\d{1,2})(?=\s*(?:[,.;!]|and\b|$))/i;
 const NAME_INTRO = /\b(?:name is|named|called|this is|meet|new skier(?: is)?)[:,]?\s+([A-Z][\p{L}'’-]+(?:\s+[A-Z][\p{L}'’-]+)?)/u;
 // Clauses that only announce what's happening ("new skier", "okay so").
 const FILLER = /^(?:okay|ok|so|um|uh|alright|(?:add(?:ing)?\s+)?(?:a\s+)?new\s+(?:skier|student|kid)|this is (?:a )?new (?:skier|student))$/i;
@@ -51,7 +56,7 @@ export function parseSkierLocally(transcript: string): ParsedSkier {
   const sentences = text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
 
   const ageMatch = text.match(AGE);
-  const ageNum = ageMatch ? parseInt(ageMatch[1] ?? ageMatch[2], 10) : NaN;
+  const ageNum = ageMatch ? parseInt(ageMatch[1] ?? ageMatch[2] ?? ageMatch[3], 10) : NaN;
   const age = ageNum >= 1 && ageNum <= 120 ? ageNum : null;
 
   let level: ParsedSkier["level"] = null;
@@ -63,6 +68,7 @@ export function parseSkierLocally(transcript: string): ParsedSkier {
   }
 
   const name = findName(text, sentences);
+  const equipment: ParsedSkier["equipment"] = SNOWBOARD.test(text) ? "snowboard" : SKI_WORD.test(text) ? "ski" : null;
 
   // Notes: every clause that isn't just the name, age or level.
   const clauses = sentences
@@ -71,11 +77,16 @@ export function parseSkierLocally(transcript: string): ParsedSkier {
     .filter(Boolean);
   const kept = clauses.filter(
     (c) =>
-      !AGE.test(c) && !LEVEL_WORDS.some(([p]) => p.test(c)) && !NAME_INTRO.test(c) && !FILLER.test(c) && c.length > 3,
+      !AGE.test(c) &&
+      !LEVEL_WORDS.some(([p]) => p.test(c)) &&
+      !NAME_INTRO.test(c) &&
+      !FILLER.test(c) &&
+      !SNOWBOARD.test(c) &&
+      c.length > 3,
   );
   const notes = kept.length
     ? kept.map((c) => c.charAt(0).toUpperCase() + c.slice(1)).join(". ") + "."
     : null;
 
-  return { name, age, level: level && SKIER_LEVELS.includes(level) ? level : null, notes };
+  return { name, age, level: level && SKIER_LEVELS.includes(level) ? level : null, equipment, notes };
 }

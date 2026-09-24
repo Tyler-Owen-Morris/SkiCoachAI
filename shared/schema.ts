@@ -35,6 +35,9 @@ export const skiers = skicoach.table(
     level: varchar("level", { length: 32 }).notNull(),
     age: integer("age"),
     initialNotes: text("initial_notes"),
+    // What they're currently riding: ski | snowboard. Notes and summaries each
+    // carry their own equipment so the two are kept apart.
+    equipment: varchar("equipment", { length: 16 }).notNull().default("ski"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -65,6 +68,7 @@ export const notes = skicoach.table(
     coachId: varchar("coach_id", { length: 64 }).notNull().references(() => coaches.id),
     // Null while a voice note has not been matched to a skier yet.
     skierId: varchar("skier_id", { length: 64 }),
+    equipment: varchar("equipment", { length: 16 }).notNull().default("ski"), // ski | snowboard
     content: text("content").notNull(),
     deviceTranscript: text("device_transcript"),
     cloudTranscript: text("cloud_transcript"),
@@ -91,6 +95,7 @@ export const summaries = skicoach.table(
     id: varchar("id", { length: 64 }).primaryKey(),
     coachId: varchar("coach_id", { length: 64 }).notNull().references(() => coaches.id),
     skierId: varchar("skier_id", { length: 64 }).notNull(),
+    equipment: varchar("equipment", { length: 16 }).notNull().default("ski"), // ski | snowboard
     status: varchar("status", { length: 16 }).notNull(), // pending | ready | error
     content: text("content"), // JSON string of SummaryContent
     error: text("error"),

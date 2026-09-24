@@ -51,6 +51,16 @@ not Unity), plus an Express + Postgres API. The working branch is
   the notes. The mic is pinned alone in a bottom bar (`RecordBar`), and every
   note recorded there is filed under that skier. There's deliberately no
   typed-note box.
+- **Ski vs snowboard:** each skier has a current `equipment` (`ski` or
+  `snowboard`). Every note and every summary carries its own equipment, so a
+  person who does both has two separate sets.
+  - The skier page's switch picks which set is shown, and the pinned mic
+    records into it.
+  - Quick notes from Home, and any note assigned to a skier (by the coach or
+    the AI), take that skier's current equipment.
+  - Summaries are generated only from notes with the same equipment.
+  - Older app builds that don't send `equipment` keep what the server already
+    has.
 - No Replit (hosting or auth).
 
 ## Where things run
@@ -133,5 +143,5 @@ Work from evidence: server logs plus the exact error text shown on the phone
 Running on TestFlight. Offline recording, sync, cloud transcription and AI
 skier routing are verified in production. Not yet verified in production:
 AI summaries, multi-skier note splitting, adding a skier by voice (AI
-path), archiving and photos on a device, signing in with your own key on a device, and a long offline backlog
+path), archiving and photos on a device, ski vs snowboard summaries, signing in with your own key on a device, and a long offline backlog
 on a device.

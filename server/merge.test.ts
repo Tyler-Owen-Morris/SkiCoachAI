@@ -9,6 +9,7 @@ const existing: NoteRow = {
   id: "note-0001",
   coachId: "c",
   skierId: "skier-ai",
+  equipment: "ski",
   content: "cloud text",
   deviceTranscript: "device text",
   cloudTranscript: "cloud text",
@@ -103,5 +104,25 @@ describe("mergeSkier", () => {
 
   it("unarchives when a current build sends archivedAt: null", () => {
     expect(mergeSkier(archivedRow, { ...payload, archivedAt: null })?.archivedAt).toBeNull();
+  });
+});
+
+describe("equipment", () => {
+  it("keeps the server's equipment when an older app build (no equipment field) edits a note", () => {
+    const boardNote = { ...existing, equipment: "snowboard", assignmentStatus: "manual" };
+    const w = mergeNote(boardNote, incoming({ assignmentStatus: "manual", skierId: "skier-ai" }))!;
+    expect(w.equipment).toBe("snowboard");
+  });
+
+  it("takes the equipment from the device when it's sent", () => {
+    const w = mergeNote({ ...existing, equipment: "ski" }, incoming({ equipment: "snowboard", assignmentStatus: "manual" }))!;
+    expect(w.equipment).toBe("snowboard");
+  });
+
+  it("keeps the AI assignment's equipment over a stale device guess", () => {
+    const aiBoard = { ...existing, equipment: "snowboard" };
+    const w = mergeNote(aiBoard, incoming({ equipment: "ski" }))!;
+    expect(w.skierId).toBe("skier-ai");
+    expect(w.equipment).toBe("snowboard");
   });
 });

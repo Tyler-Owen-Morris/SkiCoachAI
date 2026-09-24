@@ -1,5 +1,6 @@
 import { Home, Settings } from "lucide-react";
 import { useLocation } from "wouter";
+import type { Equipment } from "@shared/sync";
 import { useLocal } from "@/app/hooks";
 import { listSkiers } from "@/data/repo";
 import { cn } from "@/lib/utils";
@@ -62,12 +63,19 @@ export default function BottomNavigation({ active }: BottomNavigationProps) {
   );
 }
 
-// Skier page: the same bar with only the mic, filing every note under them.
-export function RecordBar({ skier }: { skier: { id: string; name: string } }) {
+// Skier page: the same bar with only the mic, filing every note under them
+// (on the ski or snowboard tab being viewed).
+export function RecordBar({
+  skier,
+  equipment,
+}: {
+  skier: { id: string; name: string; equipment: Equipment };
+  equipment: Equipment;
+}) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 pt-2 safe-bottom z-40">
       <div className="flex justify-center">
-        <RecordFab skiers={[skier]} fixedSkier={skier} />
+        <RecordFab skiers={[skier]} fixedSkier={skier} equipment={equipment} />
       </div>
     </nav>
   );

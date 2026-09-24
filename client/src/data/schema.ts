@@ -76,6 +76,12 @@ const MIGRATIONS: string[] = [
     updated_at TEXT NOT NULL
   );
   `,
+  // 3: ski vs snowboard. Everything recorded before this was on skis.
+  `
+  ALTER TABLE skiers ADD COLUMN equipment TEXT NOT NULL DEFAULT 'ski';
+  ALTER TABLE notes ADD COLUMN equipment TEXT NOT NULL DEFAULT 'ski';
+  ALTER TABLE summaries ADD COLUMN equipment TEXT NOT NULL DEFAULT 'ski';
+  `,
 ];
 
 export async function migrate(db: SqlDb) {

@@ -1,30 +1,32 @@
 import { Mic, Square } from "lucide-react";
 import { formatDuration, useVoiceRecording } from "@/voice/use-voice-recording";
-import { saveRecordingAsNote, SKI_HINTS } from "@/voice/save-note";
-import type { NamedSkier } from "@/lib/name-match";
+import type { Equipment } from "@shared/sync";
+import { saveRecordingAsNote, SKI_HINTS, type RosterSkier } from "@/voice/save-note";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface RecordFabProps {
   // Active skiers to match a quick note against by name.
-  skiers: NamedSkier[];
-  // On a skier's page every note is filed under them.
-  fixedSkier?: NamedSkier;
+  skiers: RosterSkier[];
+  // On a skier's page every note is filed under them, on the equipment tab
+  // being viewed.
+  fixedSkier?: RosterSkier;
+  equipment?: Equipment;
 }
 
 // The big raised mic in the bottom bar, plus the live-transcript panel shown
 // above the bar while recording. Notes save on the phone, with or without signal.
-export default function RecordFab({ skiers, fixedSkier }: RecordFabProps) {
+export default function RecordFab({ skiers, fixedSkier, equipment }: RecordFabProps) {
   const { toast } = useToast();
   const rec = useVoiceRecording({
     hints: () => [...(fixedSkier ? [fixedSkier.name] : skiers.map((s) => s.name)), ...SKI_HINTS],
     onResult: async (result, startedAt) => {
-      toast(await saveRecordingAsNote(result, startedAt, fixedSkier ? [fixedSkier] : skiers, fixedSkier));
+      toast(await saveRecordingAsNote(result, startedAt, fixedSkier ? [fixedSkier] : skiers, fixedSkier, equipment));
     },
   });
 
   const idleHint = fixedSkier
-    ? `Listening… this note is for ${fixedSkier.name}.`
+    ? `Listening… this ${equipment === "snowboard" ? "snowboard" : "ski"} note is for ${fixedSkier.name}.`
     : "Listening… say the skier's name and it's filed for you.";
 
   return (

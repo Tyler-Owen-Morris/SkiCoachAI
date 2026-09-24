@@ -1,5 +1,5 @@
 import OpenAI, { toFile } from "openai";
-import { ERROR_CODES, SKIER_LEVELS, type ParsedSkier, type SummaryContent } from "@shared/sync";
+import { EQUIPMENT, ERROR_CODES, SKIER_LEVELS, type Equipment, type ParsedSkier, type SummaryContent } from "@shared/sync";
 import { config } from "./config";
 
 export class HttpError extends Error {
@@ -225,6 +225,7 @@ export async function assignNoteToSkiers(
 export async function summarizeSkier(
   apiKey: string,
   skier: { name: string; level: string; age: number | null; initialNotes: string | null },
+  equipment: Equipment,
   notes: { recordedAt: Date; content: string }[],
 ): Promise<SummaryContent> {
   const notesText = notes
@@ -233,9 +234,9 @@ export async function summarizeSkier(
   return structuredCall<SummaryContent>(
     apiKey,
     "skier_summary",
-    "You are an expert ski instructor's assistant. Summarize coaching notes into constructive, specific, actionable feedback a coach can use in the next lesson. Be concise. Base everything on the notes; do not invent observations.",
+    `You are an expert ${equipment === "snowboard" ? "snowboard" : "ski"} instructor's assistant. Summarize coaching notes into constructive, specific, actionable feedback a coach can use in the next lesson. Be concise. Base everything on the notes; do not invent observations. All drills and advice must be for ${equipment === "snowboard" ? "snowboarding" : "skiing"}.`,
     [
-      `Skier: ${skier.name}, level ${skier.level}${skier.age ? `, age ${skier.age}` : ""}.`,
+      `Student: ${skier.name}, on ${equipment === "snowboard" ? "a snowboard" : "skis"}, level ${skier.level}${skier.age ? `, age ${skier.age}` : ""}.`,
       skier.initialNotes ? `Coach's initial notes: ${skier.initialNotes}` : "",
       `Coaching notes (oldest first):\n${notesText}`,
     ]
@@ -273,19 +274,21 @@ export async function parseSkierDescription(apiKey: string, transcript: string):
       "Extract: name (the student's name as spoken, properly capitalized); age (whole years, or null);",
       "level (beginner, intermediate, advanced or expert, mapping phrases like 'first time on skis' to beginner",
       "or 'rips black diamonds' to advanced; null if not stated);",
+      "equipment (ski or snowboard if the coach says which, e.g. 'snowboarder', 'on a board' -> snowboard; null if not said);",
       "notes (everything else useful for recognizing or coaching them, rewritten as short third-person",
       "sentences using their name, e.g. 'Lisa wears a bright red jacket.'; null if there is nothing else).",
-      "Do not put the name, age or level in the notes. Do not invent details.",
+      "Do not put the name, age, level or equipment in the notes. Do not invent details.",
     ].join(" "),
     transcript,
     {
       type: "object",
       additionalProperties: false,
-      required: ["name", "age", "level", "notes"],
+      required: ["name", "age", "level", "equipment", "notes"],
       properties: {
         name: { type: ["string", "null"] },
         age: { type: ["integer", "null"] },
         level: { type: ["string", "null"], enum: [...SKIER_LEVELS, null] },
+        equipment: { type: ["string", "null"], enum: [...EQUIPMENT, null] },
         notes: { type: ["string", "null"] },
       },
     },
@@ -295,6 +298,7 @@ export async function parseSkierDescription(apiKey: string, transcript: string):
     name: result.name?.trim() || null,
     age,
     level: result.level && (SKIER_LEVELS as readonly string[]).includes(result.level) ? result.level : null,
+    equipment: result.equipment && (EQUIPMENT as readonly string[]).includes(result.equipment) ? result.equipment : null,
     notes: result.notes?.trim() || null,
   };
 }

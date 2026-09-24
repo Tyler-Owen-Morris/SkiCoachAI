@@ -11,6 +11,7 @@ describe("parseSkierLocally", () => {
       name: "Lisa",
       age: 25,
       level: "intermediate",
+      equipment: "ski",
       notes: "You can spot her by her bright red jacket.",
     });
   });
@@ -21,6 +22,14 @@ describe("parseSkierLocally", () => {
     expect(r.age).toBe(9);
     expect(r.level).toBe("beginner");
     expect(r.notes).toBe("Pink helmet.");
+  });
+
+  it("spots snowboarders and keeps that out of the notes", () => {
+    const r = parseSkierLocally("Sam is 14, an advanced snowboarder. Green beanie");
+    expect(r.age).toBe(14);
+    expect(r.equipment).toBe("snowboard");
+    expect(r.level).toBe("advanced");
+    expect(r.notes).toBe("Green beanie.");
   });
 
   it("leaves unknown fields null instead of guessing", () => {
