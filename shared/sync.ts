@@ -21,6 +21,8 @@ export const skierPayloadSchema = z.object({
   createdAt: isoDate,
   updatedAt: isoDate,
   deletedAt: isoDate.nullable(),
+  // Optional so app builds from before archiving still sync.
+  archivedAt: isoDate.nullable().optional(),
 });
 export type SkierPayload = z.infer<typeof skierPayloadSchema>;
 
@@ -62,8 +64,24 @@ export interface PushResponse {
 
 // Rows as the server sends them back (pull, transcribe, summary responses).
 export interface ServerSkier extends SkierPayload {
+  archivedAt: string | null;
+  // When the server's copy of the photo last changed; null = never had one.
+  photoUpdatedAt: string | null;
   serverUpdatedAt: string;
 }
+
+// ~2 MB covers a resized phone photo with plenty of room.
+const MAX_PHOTO_CHARS = 2_000_000;
+const imageDataUrl = z
+  .string()
+  .max(MAX_PHOTO_CHARS)
+  .regex(/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/);
+export const skierPhotoPayloadSchema = z.object({
+  photo: imageDataUrl.nullable(),
+  thumb: imageDataUrl.nullable(),
+  updatedAt: isoDate,
+});
+export type SkierPhotoPayload = z.infer<typeof skierPhotoPayloadSchema>;
 export interface ServerNote extends NotePayload {
   cloudTranscript: string | null;
   serverUpdatedAt: string;

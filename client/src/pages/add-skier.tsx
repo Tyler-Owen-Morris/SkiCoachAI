@@ -8,6 +8,8 @@ import { getServices, afterLocalWrite } from "@/app/services";
 import { useLocal } from "@/app/hooks";
 import { createSkier, getSkier, updateSkier } from "@/data/repo";
 import { parseSkierLocally } from "@/lib/parse-skier";
+import type { SkierPhotoData } from "@/lib/photo";
+import PhotoButtons from "@/components/photo-buttons";
 import { session } from "@/lib/session";
 import { deleteAudio } from "@/voice/recorder";
 import { formatDuration, useVoiceRecording } from "@/voice/use-voice-recording";
@@ -53,6 +55,8 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [heard, setHeard] = useState<string | null>(null);
+  // Optional; applies whether the skier is added by voice or by the form.
+  const [photo, setPhoto] = useState<SkierPhotoData | null>(null);
   const editing = !!skierId;
   const { data: existing } = useLocal(["skier", skierId ?? "new"], (db) =>
     skierId ? getSkier(db, skierId) : Promise.resolve(null),
@@ -96,12 +100,16 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
       setHeard(transcript);
       const { parsed, byAi } = await understandDescription(transcript);
       if (parsed.name && parsed.level) {
-        const skier = await createSkier(getServices().db, {
-          name: parsed.name,
-          level: parsed.level,
-          age: parsed.age,
-          initialNotes: parsed.notes,
-        });
+        const skier = await createSkier(
+          getServices().db,
+          {
+            name: parsed.name,
+            level: parsed.level,
+            age: parsed.age,
+            initialNotes: parsed.notes,
+          },
+          photo,
+        );
         afterLocalWrite();
         toast({
           title: `${skier.name} added`,
@@ -142,7 +150,7 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
       toast({ title: "Changes saved" });
       setLocation(`/skier/${skierId}`);
     } else {
-      const skier = await createSkier(getServices().db, input);
+      const skier = await createSkier(getServices().db, input, photo);
       afterLocalWrite();
       toast({ title: `${skier.name} added` });
       setLocation("/");
@@ -204,6 +212,20 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
                   {rec.recording ? rec.liveText || "Listening…" : `Heard: "${heard}"`}
                 </p>
               )}
+            </div>
+          )}
+
+          {!editing && (
+            <div className="mb-6 flex items-center gap-4">
+              {photo ? (
+                <img src={photo.thumb} alt="Skier" className="w-16 h-16 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-neutral-100 shrink-0" />
+              )}
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-neutral-700">Photo (optional)</p>
+                <PhotoButtons hasPhoto={!!photo} onPicked={setPhoto} onRemove={() => setPhoto(null)} />
+              </div>
             </div>
           )}
 

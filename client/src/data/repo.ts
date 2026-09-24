@@ -23,11 +23,22 @@ export interface Skier {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  // Archived skiers keep their notes but aren't used for voice-note matching.
+  archivedAt: string | null;
+  // Version of the photo the server has (local-only bookkeeping for sync).
+  photoUpdatedAt: string | null;
 }
 
 export interface SkierWithStats extends Skier {
   noteCount: number;
   lastNoteAt: string | null;
+  thumb: string | null;
+}
+
+export interface SkierPhoto {
+  photo: string | null;
+  thumb: string | null;
+  updatedAt: string;
 }
 
 export interface Note {
@@ -72,6 +83,8 @@ const skierFromRow = (r: Row): Skier => ({
   createdAt: r.created_at,
   updatedAt: r.updated_at,
   deletedAt: r.deleted_at ?? null,
+  archivedAt: r.archived_at ?? null,
+  photoUpdatedAt: r.photo_updated_at ?? null,
 });
 
 const noteFromRow = (r: Row): Note => ({
@@ -125,14 +138,54 @@ export function stamp(): string {
 
 // ---------------------------------------------------------------- reads
 
-export async function listSkiers(db: SqlExecutor): Promise<SkierWithStats[]> {
+async function querySkiers(db: SqlExecutor, archived: boolean): Promise<SkierWithStats[]> {
   const rows = await db.all(
-    `SELECT s.*,
+    `SELECT s.*, p.thumb AS thumb,
        (SELECT COUNT(*) FROM notes n WHERE n.skier_id = s.id AND n.deleted_at IS NULL) AS note_count,
        (SELECT MAX(n.recorded_at) FROM notes n WHERE n.skier_id = s.id AND n.deleted_at IS NULL) AS last_note_at
-     FROM skiers s WHERE s.deleted_at IS NULL ORDER BY s.name COLLATE NOCASE`,
+     FROM skiers s LEFT JOIN skier_photos p ON p.skier_id = s.id
+     WHERE s.deleted_at IS NULL AND s.archived_at IS ${archived ? "NOT NULL" : "NULL"}
+     ORDER BY s.name COLLATE NOCASE`,
   );
-  return rows.map((r) => ({ ...skierFromRow(r), noteCount: Number(r.note_count ?? 0), lastNoteAt: (r.last_note_at as string | null) ?? null }));
+  return rows.map((r) => ({
+    ...skierFromRow(r),
+    noteCount: Number(r.note_count ?? 0),
+    lastNoteAt: (r.last_note_at as string | null) ?? null,
+    thumb: (r.thumb as string | null) ?? null,
+  }));
+}
+
+// Active skiers: the roster voice notes are matched against.
+export function listSkiers(db: SqlExecutor): Promise<SkierWithStats[]> {
+  return querySkiers(db, false);
+}
+
+export function listArchivedSkiers(db: SqlExecutor): Promise<SkierWithStats[]> {
+  return querySkiers(db, true);
+}
+
+export async function getSkierPhoto(db: SqlExecutor, skierId: string): Promise<SkierPhoto | null> {
+  const [row] = await db.all<{ photo: string | null; thumb: string | null; updated_at: string }>(
+    "SELECT photo, thumb, updated_at FROM skier_photos WHERE skier_id = ?",
+    [skierId],
+  );
+  return row ? { photo: row.photo ?? null, thumb: row.thumb ?? null, updatedAt: row.updated_at } : null;
+}
+
+// Skiers whose photo on the server is newer than the one on this phone.
+export async function skiersNeedingPhotoDownload(
+  db: SqlExecutor,
+  limit: number,
+): Promise<{ id: string; photoUpdatedAt: string }[]> {
+  const rows = await db.all<{ id: string; photo_updated_at: string }>(
+    `SELECT s.id, s.photo_updated_at FROM skiers s LEFT JOIN skier_photos p ON p.skier_id = s.id
+     WHERE s.deleted_at IS NULL AND s.photo_updated_at IS NOT NULL
+       AND (p.updated_at IS NULL OR p.updated_at < s.photo_updated_at)
+       AND NOT EXISTS (SELECT 1 FROM outbox o WHERE o.kind = 'photo' AND o.entity_id = s.id)
+     LIMIT ?`,
+    [limit],
+  );
+  return rows.map((r) => ({ id: r.id, photoUpdatedAt: r.photo_updated_at }));
 }
 
 export async function getSkier(db: SqlExecutor, id: string): Promise<Skier | null> {
@@ -215,10 +268,31 @@ export async function setKv(db: SqlExecutor, key: string, value: string | null) 
 
 async function writeSkierRow(tx: SqlExecutor, s: Skier) {
   await tx.run(
-    `INSERT OR REPLACE INTO skiers (id, name, level, age, initial_notes, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [s.id, s.name, s.level, s.age, s.initialNotes, s.createdAt, s.updatedAt, s.deletedAt],
+    `INSERT OR REPLACE INTO skiers (id, name, level, age, initial_notes, created_at, updated_at, deleted_at,
+       archived_at, photo_updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      s.id,
+      s.name,
+      s.level,
+      s.age,
+      s.initialNotes,
+      s.createdAt,
+      s.updatedAt,
+      s.deletedAt,
+      s.archivedAt,
+      s.photoUpdatedAt,
+    ],
   );
+}
+
+async function writePhotoRow(tx: SqlExecutor, skierId: string, p: SkierPhoto) {
+  await tx.run("INSERT OR REPLACE INTO skier_photos (skier_id, photo, thumb, updated_at) VALUES (?, ?, ?, ?)", [
+    skierId,
+    p.photo,
+    p.thumb,
+    p.updatedAt,
+  ]);
 }
 
 async function writeNoteRow(tx: SqlExecutor, n: Note) {
@@ -263,14 +337,53 @@ export interface SkierInput {
   initialNotes: string | null;
 }
 
-export async function createSkier(db: SqlDb, input: SkierInput): Promise<Skier> {
+export async function createSkier(
+  db: SqlDb,
+  input: SkierInput,
+  photo?: { photo: string; thumb: string } | null,
+): Promise<Skier> {
   const now = stamp();
-  const skier: Skier = { id: uuid(), ...input, createdAt: now, updatedAt: now, deletedAt: null };
+  const skier: Skier = {
+    id: uuid(),
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    archivedAt: null,
+    photoUpdatedAt: null,
+  };
   await db.transaction(async (tx) => {
     await writeSkierRow(tx, skier);
     await enqueue(tx, "skier", skier.id);
+    // Queued after the skier, so the server has the skier before the photo.
+    if (photo) {
+      await writePhotoRow(tx, skier.id, { ...photo, updatedAt: stamp() });
+      await enqueue(tx, "photo", skier.id);
+    }
   });
   return skier;
+}
+
+// Saves (or with null, removes) a skier's photo on the phone and queues it.
+export async function setSkierPhoto(db: SqlDb, skierId: string, photo: { photo: string; thumb: string } | null) {
+  await db.transaction(async (tx) => {
+    await writePhotoRow(tx, skierId, {
+      photo: photo?.photo ?? null,
+      thumb: photo?.thumb ?? null,
+      updatedAt: stamp(),
+    });
+    await enqueue(tx, "photo", skierId);
+  });
+}
+
+export async function setSkierArchived(db: SqlDb, id: string, archived: boolean) {
+  await db.transaction(async (tx) => {
+    const current = await getSkier(tx, id);
+    if (!current) throw new Error("Skier not found");
+    const now = stamp();
+    await writeSkierRow(tx, { ...current, archivedAt: archived ? now : null, updatedAt: now });
+    await enqueue(tx, "skier", id);
+  });
 }
 
 export async function updateSkier(db: SqlDb, id: string, input: SkierInput) {
@@ -425,6 +538,7 @@ export function skierPayload(s: Skier): SkierPayload {
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
     deletedAt: s.deletedAt,
+    archivedAt: s.archivedAt,
   };
 }
 
@@ -459,7 +573,16 @@ export async function applyServerSkier(tx: SqlExecutor, s: ServerSkier) {
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
     deletedAt: s.deletedAt,
+    archivedAt: s.archivedAt ?? null,
+    photoUpdatedAt: s.photoUpdatedAt ?? null,
   });
+}
+
+// A photo downloaded from the server, unless this phone has a newer one queued.
+export async function applyServerPhoto(tx: SqlExecutor, skierId: string, p: SkierPhoto) {
+  const pending = await tx.all("SELECT seq FROM outbox WHERE kind = 'photo' AND entity_id = ? LIMIT 1", [skierId]);
+  if (pending.length > 0) return;
+  await writePhotoRow(tx, skierId, p);
 }
 
 export async function applyServerNote(tx: SqlExecutor, n: ServerNote) {

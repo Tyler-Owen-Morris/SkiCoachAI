@@ -9,7 +9,7 @@ import { uuid } from "@/lib/ids";
 //  - ai:   transcription and summaries, run only once the data lane is drained
 
 export type OutboxLane = "data" | "ai";
-export type OutboxKind = "skier" | "note" | "transcribe" | "summary";
+export type OutboxKind = "skier" | "note" | "photo" | "transcribe" | "summary";
 export type OutboxState = "pending" | "inflight" | "failed";
 
 export interface OutboxOp {
@@ -28,6 +28,7 @@ export interface OutboxOp {
 const LANE_FOR: Record<OutboxKind, OutboxLane> = {
   skier: "data",
   note: "data",
+  photo: "data",
   transcribe: "ai",
   summary: "ai",
 };

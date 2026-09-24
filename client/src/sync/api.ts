@@ -6,6 +6,7 @@ import {
   type PullResponse,
   type PushOp,
   type PushResponse,
+  type SkierPhotoPayload,
   type SummaryResponse,
   type TranscribeResponse,
 } from "@shared/sync";
@@ -118,6 +119,10 @@ export function createApi(cfg: ApiConfig, fetchImpl: typeof fetch = (...args) =>
         openaiKey: cfg.openaiKey(),
       });
     },
+    putSkierPhoto: (skierId: string, photo: SkierPhotoPayload) =>
+      request<{ ok: true }>(`/api/skiers/${encodeURIComponent(skierId)}/photo`, { method: "PUT", json: photo }),
+    getSkierPhoto: (skierId: string) =>
+      request<SkierPhotoPayload>(`/api/skiers/${encodeURIComponent(skierId)}/photo`),
     // Interactive: short timeout, the caller falls back to on-device parsing.
     parseSkier: (transcript: string) =>
       request<ParsedSkier>("/api/ai/parse-skier", {

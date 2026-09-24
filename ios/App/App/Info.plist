@@ -36,6 +36,12 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ski Coach AI records your spoken coaching notes about each skier.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ski Coach AI lets you take a photo of each skier so you can recognize them on the hill.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ski Coach AI lets you choose an existing photo of a skier.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ski Coach AI can save skier photos to your library.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Ski Coach AI turns your voice notes into text on this iPhone, even without signal.</string>
 	<key>UIBackgroundModes</key>

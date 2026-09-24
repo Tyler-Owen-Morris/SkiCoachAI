@@ -6,6 +6,7 @@ import {
   ERROR_CODES,
   MAX_PUSH_OPS,
   parseSkierRequestSchema,
+  skierPhotoPayloadSchema,
   pushOpSchema,
   type PullResponse,
   type PushResponse,
@@ -279,6 +280,48 @@ export function registerRoutes(app: Express) {
         error: null,
       });
       res.json({ summary: toServerSummary(saved) } satisfies SummaryResponse);
+    }),
+  );
+
+  // Skier photos go through their own endpoints so sync batches stay small.
+  // Last writer wins on the device clock, like every other row.
+  app.put(
+    "/api/skiers/:id/photo",
+    requireAuth,
+    route(async (req, res) => {
+      const parsed = skierPhotoPayloadSchema.safeParse(req.body);
+      if (!parsed.success) throw new HttpError(400, "Invalid photo");
+      const skier = await storage.getSkier(req.params.id);
+      if (!skier) throw new HttpError(409, "Skier not synced yet", ERROR_CODES.notFoundYet);
+      if (skier.coachId !== req.coachId) throw new HttpError(403, "Access denied");
+      const incomingAt = new Date(parsed.data.updatedAt);
+      const existing = await storage.getSkierPhoto(skier.id);
+      const apply = !existing || incomingAt >= existing.clientUpdatedAt;
+      if (apply) {
+        await storage.writeSkierPhoto(req.coachId, skier.id, {
+          photo: parsed.data.photo,
+          thumb: parsed.data.thumb,
+          clientUpdatedAt: incomingAt,
+        });
+      }
+      const size = parsed.data.photo ? `${Math.round(parsed.data.photo.length / 1024)}KB` : "removed";
+      console.log(`[photo] skier=${skier.id} ${size} applied=${apply}`);
+      res.json({ ok: true });
+    }),
+  );
+
+  app.get(
+    "/api/skiers/:id/photo",
+    requireAuth,
+    route(async (req, res) => {
+      const skier = await storage.getSkier(req.params.id);
+      if (!skier || skier.coachId !== req.coachId) throw new HttpError(404, "No such skier");
+      const row = await storage.getSkierPhoto(skier.id);
+      res.json({
+        photo: row?.photo ?? null,
+        thumb: row?.thumb ?? null,
+        updatedAt: (row?.clientUpdatedAt ?? skier.photoUpdatedAt ?? new Date(0)).toISOString(),
+      });
     }),
   );
 

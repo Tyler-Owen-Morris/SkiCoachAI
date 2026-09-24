@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { NoteRow } from "@shared/schema";
+import type { NoteRow, SkierRow } from "@shared/schema";
 import type { NotePayload } from "@shared/sync";
-import { mergeNote } from "./merge";
+import { mergeNote, mergeSkier } from "./merge";
 
 const t = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s));
 
@@ -68,5 +68,40 @@ describe("mergeNote", () => {
   it("applies deletes", () => {
     const w = mergeNote(existing, incoming({ deletedAt: t(30).toISOString() }))!;
     expect(w.deletedAt?.toISOString()).toBe(t(30).toISOString());
+  });
+});
+
+describe("mergeSkier", () => {
+  const archivedRow: SkierRow = {
+    id: "skier-0001",
+    coachId: "c",
+    name: "Lisa",
+    level: "intermediate",
+    age: 25,
+    initialNotes: null,
+    createdAt: t(0),
+    clientUpdatedAt: t(10),
+    updatedAt: t(20),
+    deletedAt: null,
+    archivedAt: t(10),
+    photoUpdatedAt: null,
+  };
+  const payload = {
+    id: "skier-0001",
+    name: "Lisa P",
+    level: "intermediate" as const,
+    age: 25,
+    initialNotes: null,
+    createdAt: t(0).toISOString(),
+    updatedAt: t(30).toISOString(),
+    deletedAt: null,
+  };
+
+  it("keeps a skier archived when an older app build (no archivedAt field) edits it", () => {
+    expect(mergeSkier(archivedRow, payload)?.archivedAt).toEqual(t(10));
+  });
+
+  it("unarchives when a current build sends archivedAt: null", () => {
+    expect(mergeSkier(archivedRow, { ...payload, archivedAt: null })?.archivedAt).toBeNull();
   });
 });

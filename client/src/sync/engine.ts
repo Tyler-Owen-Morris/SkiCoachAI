@@ -15,16 +15,19 @@ import {
 } from "@/data/outbox";
 import {
   applyServerNote,
+  applyServerPhoto,
   applyServerSkier,
   applyServerSummary,
   getKv,
   getNote,
   getSkier,
+  getSkierPhoto,
   getSummary,
   notePayload,
   setKv,
   setSummaryStatus,
   skierPayload,
+  skiersNeedingPhotoDownload,
 } from "@/data/repo";
 import { ApiError, type Api, type FailureKind } from "./api";
 
@@ -48,7 +51,7 @@ export interface SyncStatus {
 
 export interface SyncEngineDeps {
   db: SqlDb;
-  api: Pick<Api, "push" | "pull" | "transcribe" | "summary">;
+  api: Pick<Api, "push" | "pull" | "transcribe" | "summary" | "putSkierPhoto" | "getSkierPhoto">;
   isSignedIn(): boolean;
   readAudio(fileName: string): Promise<Blob | null>;
   onDataChanged(): void;
@@ -264,11 +267,21 @@ export class SyncEngine {
       const head = ops[0];
       if (head.nextAttemptAt > this.now()) return "blocked";
 
+      // Photos are too big to batch; they go one at a time, in queue order.
+      if (head.kind === "photo") {
+        const outcome = await this.pushPhoto(head);
+        if (outcome === "stopped") return "stopped";
+        if (outcome === "blocked") return "blocked";
+        continue;
+      }
+      const firstPhoto = ops.findIndex((o) => o.kind === "photo");
+      const batch = firstPhoto === -1 ? ops : ops.slice(0, firstPhoto);
+
       const pushOps: PushOp[] = [];
       const sent: OutboxOp[] = [];
       await db.transaction(async (tx) => {
         const orphans: number[] = [];
-        for (const op of ops) {
+        for (const op of batch) {
           if (op.kind === "skier") {
             const skier = await getSkier(tx, op.entityId);
             if (!skier) orphans.push(op.seq);
@@ -324,6 +337,51 @@ export class SyncEngine {
       // "Not synced yet" markers depend on the outbox, so the UI must refresh.
       this.changed = true;
       if (missing) return "blocked";
+    }
+  }
+
+  private async pushPhoto(op: OutboxOp): Promise<"sent" | "blocked" | "stopped"> {
+    const { db, api } = this.deps;
+    const photo = await getSkierPhoto(db, op.entityId);
+    if (!photo) {
+      await db.transaction((tx) => removeOps(tx, [op.seq]));
+      return "sent";
+    }
+    await db.transaction((tx) => setState(tx, [op.seq], "inflight"));
+    try {
+      await api.putSkierPhoto(op.entityId, photo);
+    } catch (err) {
+      await db.transaction((tx) => setState(tx, [op.seq], "pending"));
+      const outcome = await this.handleFailure(op, err);
+      if (outcome === "stopped") return "stopped";
+      return outcome === "parked" ? "sent" : "blocked";
+    }
+    await db.transaction((tx) => removeOps(tx, [op.seq]));
+    this.changed = true;
+    return "sent";
+  }
+
+  // Fetches photos the server has that are newer than this phone's copy
+  // (e.g. after a reinstall). A few per pass so a big backlog can't stall sync.
+  private async downloadPhotos() {
+    const { db, api } = this.deps;
+    const wanted = await skiersNeedingPhotoDownload(db, 10);
+    for (const { id, photoUpdatedAt } of wanted) {
+      try {
+        const photo = await api.getSkierPhoto(id);
+        await db.transaction((tx) => applyServerPhoto(tx, id, photo));
+        this.changed = true;
+      } catch (err) {
+        const kind = failureKind(err);
+        if (kind === "permanent") {
+          // Nothing to fetch; record it so we don't ask again.
+          await db.transaction((tx) =>
+            applyServerPhoto(tx, id, { photo: null, thumb: null, updatedAt: photoUpdatedAt }),
+          );
+          continue;
+        }
+        return;
+      }
     }
   }
 
@@ -409,6 +467,7 @@ export class SyncEngine {
       await setKv(tx, "pullCursor", res.cursor);
     });
     if (res.skiers.length || res.notes.length || res.summaries.length) this.changed = true;
+    await this.downloadPhotos();
     return "ok";
   }
 }

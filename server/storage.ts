@@ -2,6 +2,7 @@ import { and, asc, eq, gt, inArray, isNull } from "drizzle-orm";
 import {
   coaches,
   notes,
+  skierPhotos,
   skiers,
   summaries,
   type NoteRow,
@@ -24,6 +25,8 @@ export function toServerSkier(row: SkierRow): ServerSkier {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.clientUpdatedAt.toISOString(),
     deletedAt: row.deletedAt?.toISOString() ?? null,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    photoUpdatedAt: row.photoUpdatedAt?.toISOString() ?? null,
     serverUpdatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -124,7 +127,7 @@ export const storage = {
     return db
       .select({ id: skiers.id, name: skiers.name })
       .from(skiers)
-      .where(and(eq(skiers.coachId, coachId), isNull(skiers.deletedAt)));
+      .where(and(eq(skiers.coachId, coachId), isNull(skiers.deletedAt), isNull(skiers.archivedAt)));
   },
 
   async activeNotesForSkier(coachId: string, skierId: string) {
@@ -166,6 +169,26 @@ export const storage = {
       db.select().from(summaries).where(summaryWhere).orderBy(asc(summaries.updatedAt)).limit(PULL_LIMIT),
     ]);
     return { skierRows, noteRows, summaryRows, limit: PULL_LIMIT };
+  },
+
+  async getSkierPhoto(skierId: string) {
+    const [row] = await db.select().from(skierPhotos).where(eq(skierPhotos.skierId, skierId));
+    return row;
+  },
+
+  // Saves a photo (or its removal) and bumps the skier row so devices pull it.
+  async writeSkierPhoto(
+    coachId: string,
+    skierId: string,
+    photo: { photo: string | null; thumb: string | null; clientUpdatedAt: Date },
+  ) {
+    const now = new Date();
+    const values = { skierId, coachId, ...photo, updatedAt: now };
+    await db.insert(skierPhotos).values(values).onConflictDoUpdate({ target: skierPhotos.skierId, set: values });
+    await db
+      .update(skiers)
+      .set({ photoUpdatedAt: photo.clientUpdatedAt, updatedAt: now })
+      .where(eq(skiers.id, skierId));
   },
 
   async skiersByIds(ids: string[]) {

@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { SkierWithStats } from "@/data/repo";
+import SkierAvatar from "./skier-avatar";
 
 interface SkierCardProps {
   skier: SkierWithStats;
@@ -21,9 +22,7 @@ export default function SkierCard({ skier, onClick }: SkierCardProps) {
       className="w-full text-left bg-white rounded-xl p-4 shadow-sm border border-neutral-100 hover:shadow-md transition-shadow"
     >
       <div className="flex items-center space-x-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
-          <span className="text-white font-medium text-lg">{skier.name.charAt(0).toUpperCase()}</span>
-        </div>
+        <SkierAvatar name={skier.name} thumb={skier.thumb} />
 
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-neutral-800 truncate">{skier.name}</h3>

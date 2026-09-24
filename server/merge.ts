@@ -6,7 +6,7 @@ import type { NoteRow, SkierRow } from "@shared/schema";
 // the server can know (cloud transcript, AI assignment), which a stale device
 // copy must not wipe out.
 
-export type SkierWrite = Omit<SkierRow, "coachId" | "updatedAt">;
+export type SkierWrite = Omit<SkierRow, "coachId" | "updatedAt" | "photoUpdatedAt">;
 export type NoteWrite = Omit<NoteRow, "coachId" | "updatedAt">;
 
 export function mergeSkier(existing: SkierRow | undefined, incoming: SkierPayload): SkierWrite | null {
@@ -21,6 +21,13 @@ export function mergeSkier(existing: SkierRow | undefined, incoming: SkierPayloa
     createdAt: existing?.createdAt ?? new Date(incoming.createdAt),
     clientUpdatedAt: incomingAt,
     deletedAt: incoming.deletedAt ? new Date(incoming.deletedAt) : null,
+    // Older app builds don't send archivedAt; keep whatever the server has.
+    archivedAt:
+      incoming.archivedAt === undefined
+        ? (existing?.archivedAt ?? null)
+        : incoming.archivedAt
+          ? new Date(incoming.archivedAt)
+          : null,
   };
 }
 

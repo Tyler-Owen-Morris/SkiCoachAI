@@ -1,19 +1,25 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, MoreVertical, Pencil, Send, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, MoreVertical, Pencil, Send, Trash2 } from "lucide-react";
 import { getServices, afterLocalWrite } from "@/app/services";
 import { useLocal, useSyncStatus } from "@/app/hooks";
 import {
   addTypedNote,
   deleteSkier,
   getSkier,
+  getSkierPhoto,
   latestReadySummary,
   latestSummary,
   listNotesForSkier,
   listSkiers,
   requestSummary,
+  setSkierArchived,
+  setSkierPhoto,
   unsyncedNoteIds,
 } from "@/data/repo";
+import type { SkierPhotoData } from "@/lib/photo";
+import PhotoButtons from "@/components/photo-buttons";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import VoiceCapture from "@/components/voice-capture";
 import LoadingOverlay from "@/components/loading-overlay";
 import NoteCard from "@/components/note-card";
@@ -37,6 +43,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
   const [, setLocation] = useLocation();
   const [typed, setTyped] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [viewPhoto, setViewPhoto] = useState(false);
   const status = useSyncStatus();
   const { data: skier, isLoading } = useLocal(["skier", params.id], (db) => getSkier(db, params.id));
   const { data: notes = [] } = useLocal(["notes", params.id], (db) => listNotesForSkier(db, params.id));
@@ -44,6 +51,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
   const { data: ready = null } = useLocal(["summary-ready", params.id], (db) => latestReadySummary(db, params.id));
   const { data: skiers = [] } = useLocal(["skiers"], listSkiers);
   const { data: unsynced } = useLocal(["unsynced"], unsyncedNoteIds);
+  const { data: photo = null } = useLocal(["photo", params.id], (db) => getSkierPhoto(db, params.id));
 
   if (isLoading) return <LoadingOverlay />;
 
@@ -70,6 +78,21 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
 
   async function generateSummary() {
     await requestSummary(getServices().db, params.id);
+    afterLocalWrite();
+  }
+
+  async function setArchived(archived: boolean) {
+    await setSkierArchived(getServices().db, params.id, archived);
+    afterLocalWrite();
+  }
+
+  async function savePhoto(picked: SkierPhotoData) {
+    await setSkierPhoto(getServices().db, params.id, picked);
+    afterLocalWrite();
+  }
+
+  async function removePhoto() {
+    await setSkierPhoto(getServices().db, params.id, null);
     afterLocalWrite();
   }
 
@@ -108,6 +131,15 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
               <DropdownMenuItem onClick={() => setLocation(`/skier/${skier.id}/edit`)}>
                 <Pencil size={14} className="mr-2" /> Edit details
               </DropdownMenuItem>
+              {skier.archivedAt ? (
+                <DropdownMenuItem onClick={() => setArchived(false)}>
+                  <ArchiveRestore size={14} className="mr-2" /> Unarchive skier
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => setArchived(true)}>
+                  <Archive size={14} className="mr-2" /> Archive skier
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDelete(true)}>
                 <Trash2 size={14} className="mr-2" /> Remove skier
               </DropdownMenuItem>
@@ -117,6 +149,34 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
       </header>
 
       <div className="p-4 space-y-6">
+        {skier.archivedAt && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+            <Archive className="text-amber-700 shrink-0" size={18} />
+            <p className="text-sm text-amber-900 flex-1">
+              Archived. Notes are kept, but quick voice notes won't be matched to {skier.name.split(" ")[0]}.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => setArchived(false)}>
+              Unarchive
+            </Button>
+          </div>
+        )}
+
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          {photo?.photo && (
+            <button onClick={() => setViewPhoto(true)} className="block w-full" aria-label="View photo">
+              <img src={photo.photo} alt={skier.name} className="w-full max-h-72 object-cover" />
+            </button>
+          )}
+          <div className="p-4 space-y-2">
+            {!photo?.photo && (
+              <p className="text-sm text-neutral-600">
+                Add a photo so you can spot {skier.name.split(" ")[0]} on the hill.
+              </p>
+            )}
+            <PhotoButtons hasPhoto={!!photo?.photo} onPicked={savePhoto} onRemove={removePhoto} />
+          </div>
+        </div>
+
         <VoiceCapture skier={{ id: skier.id, name: skier.name }} />
 
         <div className="bg-white rounded-xl p-4 shadow-sm space-y-2">
@@ -164,6 +224,13 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
           )}
         </section>
       </div>
+
+      <Dialog open={viewPhoto} onOpenChange={setViewPhoto}>
+        <DialogContent className="p-2">
+          <DialogTitle className="sr-only">{skier.name}</DialogTitle>
+          {photo?.photo && <img src={photo.photo} alt={skier.name} className="w-full rounded-lg" />}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

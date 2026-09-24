@@ -39,9 +39,24 @@ export const skiers = skicoach.table(
     clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // Archived skiers keep their notes but are left out of voice-note matching.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    // Device clock of the latest photo upload (the photo is in skier_photos).
+    photoUpdatedAt: timestamp("photo_updated_at", { withTimezone: true }),
   },
   (t) => [index("skiers_coach_updated_idx").on(t.coachId, t.updatedAt)],
 );
+
+// Kept apart from skiers so syncing skier rows never drags image data along.
+// photo/thumb are JPEG data URLs; both null means the photo was removed.
+export const skierPhotos = skicoach.table("skier_photos", {
+  skierId: varchar("skier_id", { length: 64 }).primaryKey(),
+  coachId: varchar("coach_id", { length: 64 }).notNull().references(() => coaches.id),
+  photo: text("photo"),
+  thumb: text("thumb"),
+  clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const notes = skicoach.table(
   "notes",
@@ -90,3 +105,4 @@ export type Coach = typeof coaches.$inferSelect;
 export type SkierRow = typeof skiers.$inferSelect;
 export type NoteRow = typeof notes.$inferSelect;
 export type SummaryRow = typeof summaries.$inferSelect;
+export type SkierPhotoRow = typeof skierPhotos.$inferSelect;

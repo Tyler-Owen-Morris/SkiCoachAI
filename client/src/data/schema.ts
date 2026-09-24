@@ -64,6 +64,18 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS outbox_lane_idx ON outbox (lane, state, seq);
   `,
+  // 2: archiving and skier photos. photo_updated_at on skiers is the server's
+  // photo version; skier_photos.updated_at is the version this phone holds.
+  `
+  ALTER TABLE skiers ADD COLUMN archived_at TEXT;
+  ALTER TABLE skiers ADD COLUMN photo_updated_at TEXT;
+  CREATE TABLE IF NOT EXISTS skier_photos (
+    skier_id TEXT PRIMARY KEY NOT NULL,
+    photo TEXT,
+    thumb TEXT,
+    updated_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export async function migrate(db: SqlDb) {

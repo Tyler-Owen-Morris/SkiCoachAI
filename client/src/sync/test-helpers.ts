@@ -7,6 +7,7 @@ import type {
   ServerNote,
   ServerSkier,
   ServerSummary,
+  SkierPhotoPayload,
   SummaryResponse,
   TranscribeResponse,
 } from "@shared/sync";
@@ -29,6 +30,7 @@ export class FakeServer {
   skiers = new Map<string, SkierRow>();
   notes = new Map<string, NoteRow>();
   summaries = new Map<string, ServerSummary>();
+  photos = new Map<string, SkierPhotoPayload>();
   online = true;
   // Next N calls fail with this status (0 = network).
   failures: number[] = [];
@@ -60,6 +62,8 @@ export class FakeServer {
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.clientUpdatedAt.toISOString(),
       deletedAt: r.deletedAt?.toISOString() ?? null,
+      archivedAt: r.archivedAt?.toISOString() ?? null,
+      photoUpdatedAt: r.photoUpdatedAt?.toISOString() ?? null,
       serverUpdatedAt: r.updatedAt.toISOString(),
     };
   }
@@ -95,8 +99,16 @@ export class FakeServer {
             results.push({ opId: op.opId, status: "rejected", error: "bad skier" });
             continue;
           }
-          const write = mergeSkier(this.skiers.get(op.data.id), op.data);
-          if (write) this.skiers.set(op.data.id, { ...write, coachId: "c", updatedAt: this.stampServer() });
+          const existing = this.skiers.get(op.data.id);
+          const write = mergeSkier(existing, op.data);
+          if (write) {
+            this.skiers.set(op.data.id, {
+              ...write,
+              coachId: "c",
+              photoUpdatedAt: existing?.photoUpdatedAt ?? null,
+              updatedAt: this.stampServer(),
+            });
+          }
         } else {
           const write = mergeNote(this.notes.get(op.data.id), op.data);
           if (write) this.notes.set(op.data.id, { ...write, coachId: "c", updatedAt: this.stampServer() });
@@ -135,6 +147,23 @@ export class FakeServer {
       };
       this.notes.set(noteId, updated);
       return { note: this.noteOut(updated), createdNotes: [] };
+    },
+    putSkierPhoto: async (skierId: string, photo: SkierPhotoPayload): Promise<{ ok: true }> => {
+      this.gate();
+      const skier = this.skiers.get(skierId);
+      if (!skier) throw new ApiError(409, "Skier not synced yet");
+      const existing = this.photos.get(skierId);
+      if (!existing || photo.updatedAt >= existing.updatedAt) {
+        this.photos.set(skierId, photo);
+        this.skiers.set(skierId, { ...skier, photoUpdatedAt: new Date(photo.updatedAt), updatedAt: this.stampServer() });
+      }
+      return { ok: true };
+    },
+    getSkierPhoto: async (skierId: string): Promise<SkierPhotoPayload> => {
+      this.gate();
+      const photo = this.photos.get(skierId);
+      if (!photo) throw new ApiError(404, "No such skier");
+      return photo;
     },
     summary: async (skierId: string, id: string, requestedAt: string): Promise<SummaryResponse> => {
       this.gate();

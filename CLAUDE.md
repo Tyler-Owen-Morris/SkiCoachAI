@@ -36,6 +36,15 @@ not Unity), plus an Express + Postgres API. The working branch is
 - **Home layout:** quick voice notes are recorded from the big center mic in
   the bottom nav (Skiers | mic | Settings). "Add skier" is the + in the Home
   header.
+- **Archived skiers** keep all their notes but are excluded from voice-note
+  name matching: the phone only guesses among active skiers
+  (`listSkiers`), and the server's AI routing roster skips archived ones. This
+  lets several skiers share a name as long as only one is active.
+- **Skier photos** are optional. The phone resizes them (about 900px plus a
+  192px thumbnail, as JPEG data URLs) and keeps them in the local
+  `skier_photos` table. They upload one at a time through the ordered data lane
+  (`PUT /api/skiers/:id/photo`) and download after a pull whenever the server's
+  `photoUpdatedAt` is newer.
 - No Replit (hosting or auth).
 
 ## Where things run
@@ -112,5 +121,5 @@ Work from evidence: server logs plus the exact error text shown on the phone
 Running on TestFlight. Offline recording, sync, cloud transcription and AI
 skier routing are verified in production. Not yet verified in production:
 AI summaries, multi-skier note splitting, adding a skier by voice (AI
-path), signing in with your own key on a device, and a long offline backlog
+path), archiving and photos on a device, signing in with your own key on a device, and a long offline backlog
 on a device.
