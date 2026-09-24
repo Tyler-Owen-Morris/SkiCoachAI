@@ -9,7 +9,7 @@ import { useLocal } from "@/app/hooks";
 import { createSkier, getSkier, updateSkier } from "@/data/repo";
 import { parseSkierLocally } from "@/lib/parse-skier";
 import type { SkierPhotoData } from "@/lib/photo";
-import PhotoButtons from "@/components/photo-buttons";
+import SkierPhotoCircle from "@/components/skier-photo-circle";
 import { session } from "@/lib/session";
 import { deleteAudio } from "@/voice/recorder";
 import { formatDuration, useVoiceRecording } from "@/voice/use-voice-recording";
@@ -217,15 +217,16 @@ export default function AddSkier({ skierId }: { skierId?: string }) {
 
           {!editing && (
             <div className="mb-6 flex items-center gap-4">
-              {photo ? (
-                <img src={photo.thumb} alt="Skier" className="w-16 h-16 rounded-full object-cover shrink-0" />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-neutral-100 shrink-0" />
-              )}
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-neutral-700">Photo (optional)</p>
-                <PhotoButtons hasPhoto={!!photo} onPicked={setPhoto} onRemove={() => setPhoto(null)} />
-              </div>
+              <SkierPhotoCircle
+                name="new skier"
+                src={photo?.photo ?? null}
+                size={88}
+                onChange={setPhoto}
+                onRemove={() => setPhoto(null)}
+              />
+              <p className="text-sm text-neutral-600">
+                Photo (optional). Tap the circle to take or choose one.
+              </p>
             </div>
           )}
 

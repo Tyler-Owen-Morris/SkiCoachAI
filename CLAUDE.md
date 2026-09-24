@@ -40,11 +40,17 @@ not Unity), plus an Express + Postgres API. The working branch is
   name matching: the phone only guesses among active skiers
   (`listSkiers`), and the server's AI routing roster skips archived ones. This
   lets several skiers share a name as long as only one is active.
-- **Skier photos** are optional. The phone resizes them (about 900px plus a
-  192px thumbnail, as JPEG data URLs) and keeps them in the local
+- **Skier photos** are optional. The phone resizes them (the coach positions it in
+  a circle, then it's saved as a 640px square plus a 192px thumbnail, as JPEG
+  data URLs) and keeps them in the local
   `skier_photos` table. They upload one at a time through the ordered data lane
   (`PUT /api/skiers/:id/photo`) and download after a pull whenever the server's
   `photoUpdatedAt` is newer.
+- **Skier page layout, top to bottom:** photo card (tappable circle photo
+  with a cropper, name, level and age, how to spot them), the AI summary, then
+  the notes. The mic is pinned alone in a bottom bar (`RecordBar`), and every
+  note recorded there is filed under that skier. There's deliberately no
+  typed-note box.
 - No Replit (hosting or auth).
 
 ## Where things run

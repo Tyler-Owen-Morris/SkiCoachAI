@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Archive, ArchiveRestore, ArrowLeft, MoreVertical, Pencil, Send, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { getServices, afterLocalWrite } from "@/app/services";
 import { useLocal, useSyncStatus } from "@/app/hooks";
 import {
-  addTypedNote,
   deleteSkier,
   getSkier,
   getSkierPhoto,
@@ -18,15 +17,13 @@ import {
   unsyncedNoteIds,
 } from "@/data/repo";
 import type { SkierPhotoData } from "@/lib/photo";
-import PhotoButtons from "@/components/photo-buttons";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import VoiceCapture from "@/components/voice-capture";
+import SkierPhotoCircle from "@/components/skier-photo-circle";
+import { RecordBar } from "@/components/bottom-navigation";
 import LoadingOverlay from "@/components/loading-overlay";
 import NoteCard from "@/components/note-card";
 import SummaryCard from "@/components/summary-card";
 import SyncBadge from "@/components/sync-badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -39,11 +36,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+// Everything a coach needs to recognize a skier is at the top (photo, name,
+// notes about them), then the AI summary, then every note. The mic pinned at
+// the bottom files notes under this skier from anywhere on the page.
 export default function SkierDetail({ params }: { params: { id: string } }) {
   const [, setLocation] = useLocation();
-  const [typed, setTyped] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [viewPhoto, setViewPhoto] = useState(false);
   const status = useSyncStatus();
   const { data: skier, isLoading } = useLocal(["skier", params.id], (db) => getSkier(db, params.id));
   const { data: notes = [] } = useLocal(["notes", params.id], (db) => listNotesForSkier(db, params.id));
@@ -68,13 +66,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
     );
   }
 
-  async function saveTyped() {
-    const content = typed.trim();
-    if (!content) return;
-    await addTypedNote(getServices().db, params.id, content);
-    setTyped("");
-    afterLocalWrite();
-  }
+  const firstName = skier.name.split(" ")[0];
 
   async function generateSummary() {
     await requestSummary(getServices().db, params.id);
@@ -103,7 +95,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-10">
+    <div className="min-h-screen bg-neutral-50 pb-36">
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-40 safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
           <button
@@ -113,13 +105,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
           >
             <ArrowLeft className="text-neutral-600" size={20} />
           </button>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-medium text-neutral-800 truncate">{skier.name}</h2>
-            <p className="text-sm text-neutral-600 capitalize">
-              {skier.level}
-              {skier.age ? ` · age ${skier.age}` : ""}
-            </p>
-          </div>
+          <h1 className="flex-1 min-w-0 text-base font-medium text-neutral-800 truncate">{skier.name}</h1>
           <SyncBadge />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -148,12 +134,12 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
         </div>
       </header>
 
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-5">
         {skier.archivedAt && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
             <Archive className="text-amber-700 shrink-0" size={18} />
             <p className="text-sm text-amber-900 flex-1">
-              Archived. Notes are kept, but quick voice notes won't be matched to {skier.name.split(" ")[0]}.
+              Archived. Quick voice notes from the home screen won't be matched to {firstName}.
             </p>
             <Button size="sm" variant="outline" onClick={() => setArchived(false)}>
               Unarchive
@@ -161,37 +147,31 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {photo?.photo && (
-            <button onClick={() => setViewPhoto(true)} className="block w-full" aria-label="View photo">
-              <img src={photo.photo} alt={skier.name} className="w-full max-h-72 object-cover" />
+        {/* Who they are: photo, name, and the coach's notes for spotting them. */}
+        <section className="bg-white rounded-xl shadow-sm p-5 flex flex-col items-center text-center">
+          <SkierPhotoCircle
+            name={skier.name}
+            src={photo?.photo ?? photo?.thumb ?? null}
+            size={144}
+            onChange={savePhoto}
+            onRemove={removePhoto}
+          />
+          <h2 className="mt-3 text-xl font-semibold text-neutral-800">{skier.name}</h2>
+          <p className="text-sm text-neutral-600 capitalize">
+            {skier.level}
+            {skier.age ? ` · age ${skier.age}` : ""}
+          </p>
+          {skier.initialNotes ? (
+            <p className="mt-3 text-sm text-neutral-700 whitespace-pre-wrap">{skier.initialNotes}</p>
+          ) : (
+            <button
+              onClick={() => setLocation(`/skier/${skier.id}/edit`)}
+              className="mt-3 text-sm text-primary"
+            >
+              Add how to spot {firstName}
             </button>
           )}
-          <div className="p-4 space-y-2">
-            {!photo?.photo && (
-              <p className="text-sm text-neutral-600">
-                Add a photo so you can spot {skier.name.split(" ")[0]} on the hill.
-              </p>
-            )}
-            <PhotoButtons hasPhoto={!!photo?.photo} onPicked={savePhoto} onRemove={removePhoto} />
-          </div>
-        </div>
-
-        <VoiceCapture skier={{ id: skier.id, name: skier.name }} />
-
-        <div className="bg-white rounded-xl p-4 shadow-sm space-y-2">
-          <Textarea
-            rows={2}
-            placeholder={`Or type a note about ${skier.name.split(" ")[0]}…`}
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-          />
-          <div className="flex justify-end">
-            <Button size="sm" disabled={!typed.trim()} onClick={saveTyped}>
-              <Send size={14} className="mr-1" /> Save note
-            </Button>
-          </div>
-        </div>
+        </section>
 
         <SummaryCard
           summary={summary}
@@ -203,19 +183,12 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
           onRequest={generateSummary}
         />
 
-        {skier.initialNotes && (
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">Initial notes</h4>
-            <p className="text-sm text-neutral-800 whitespace-pre-wrap">{skier.initialNotes}</p>
-          </div>
-        )}
-
         <section className="space-y-3">
           <h3 className="text-lg font-medium text-neutral-800">Notes ({notes.length})</h3>
           {notes.length === 0 ? (
             <div className="bg-white rounded-xl p-8 shadow-sm text-center">
               <h4 className="text-lg font-medium text-neutral-800 mb-2">No notes yet</h4>
-              <p className="text-neutral-600">Record your first voice note above.</p>
+              <p className="text-neutral-600">Tap the mic below to record one about {firstName}.</p>
             </div>
           ) : (
             notes.map((note) => (
@@ -225,12 +198,7 @@ export default function SkierDetail({ params }: { params: { id: string } }) {
         </section>
       </div>
 
-      <Dialog open={viewPhoto} onOpenChange={setViewPhoto}>
-        <DialogContent className="p-2">
-          <DialogTitle className="sr-only">{skier.name}</DialogTitle>
-          {photo?.photo && <img src={photo.photo} alt={skier.name} className="w-full rounded-lg" />}
-        </DialogContent>
-      </Dialog>
+      <RecordBar skier={{ id: skier.id, name: skier.name }} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
