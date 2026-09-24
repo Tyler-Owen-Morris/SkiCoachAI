@@ -111,6 +111,12 @@ Work from evidence: server logs plus the exact error text shown on the phone
   `res.ok`. This was the first production bug.
 - **`server.iosScheme: 'https'` is silently ignored.** The app origin is
   `capacitor://localhost`, which the server's CORS allowlist covers.
+- **Render can serve a stale build.** Once, a deploy reported `live` for the
+  new commit while still answering like the previous build (the new routes
+  returned Express "Cannot GET" 404s). Rebuilding without the build cache fixed
+  it: `render deploys create srv-daq4pp8473hc73cksfh0 --commit <sha>
+  --clear-cache --wait --confirm`. After every server deploy, call any new
+  route without auth and expect 401, not 404.
 - **Code signing:** `ios_signing` only uses profiles already in Codemagic; it
   doesn't create them. The App Store profile `SkiCoach App Store` uses a
   Codemagic-generated Apple Distribution certificate. The same Apple account
