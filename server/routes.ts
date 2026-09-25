@@ -23,6 +23,7 @@ import {
   toHttpError,
   transcribeAudio,
 } from "./ai";
+import { registerLegalRoutes } from "./legal";
 import { mergeNote, mergeSkier } from "./merge";
 import { storage, toServerNote, toServerSkier, toServerSummary } from "./storage";
 import { config } from "./config";
@@ -65,6 +66,7 @@ export function registerRoutes(app: Express) {
   });
 
   registerAuthRoutes(app);
+  registerLegalRoutes(app);
 
   // Applies a batch of changes queued on the device, in order. Each op is
   // idempotent (keyed by the device-generated id), so a retried batch is safe.
